@@ -391,6 +391,7 @@ tarbin:
 	$(bindir)/qemu-system-x86_64 \
 	$(bindir)/qemu-system-arm \
 	$(bindir)/qemu-system-cris \
+	$(bindir)/qemu-system-lm32 \
 	$(bindir)/qemu-system-m68k \
 	$(bindir)/qemu-system-microblaze \
 	$(bindir)/qemu-system-mips \
@@ -409,6 +410,7 @@ tarbin:
 	$(bindir)/qemu-arm \
 	$(bindir)/qemu-armeb \
 	$(bindir)/qemu-cris \
+	$(bindir)/qemu-lm32 \
 	$(bindir)/qemu-m68k \
 	$(bindir)/qemu-microblaze \
 	$(bindir)/qemu-mips \

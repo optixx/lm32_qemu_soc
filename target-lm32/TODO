@@ -1,0 +1,9 @@
+ - disassembler (lm32-dis.c)
+ - optimizations
+ - gdb support (?!)
+ - support for the three cpu flavours
+ - support for dynamic board options
+
+hw:
+ - uart: fifo mode
+ - uart: proper interrupts

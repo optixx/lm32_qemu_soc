@@ -63,6 +63,7 @@ libobj-$(CONFIG_PPC_DIS) += ppc-dis.o
 libobj-$(CONFIG_S390_DIS) += s390-dis.o
 libobj-$(CONFIG_SH4_DIS) += sh4-dis.o
 libobj-$(CONFIG_SPARC_DIS) += sparc-dis.o
+libobj-$(CONFIG_LM32_DIS) += lm32-dis.o
 
 # libqemu
 
@@ -216,6 +217,12 @@ obj-ppc-y += ppc440.o ppc440_bamboo.o
 obj-ppc-y += ppce500_pci.o ppce500_mpc8544ds.o
 obj-ppc-$(CONFIG_KVM) += kvm_ppc.o
 obj-ppc-$(CONFIG_FDT) += device_tree.o
+
+obj-lm32-y += lm32_pic_cpu.o
+obj-lm32-y += lm32_boards.o
+obj-lm32-y += lm32_timer.o
+obj-lm32-y += lm32_uart.o
+obj-lm32-y += pflash_cfi02.o
 
 obj-mips-y = mips_r4k.o mips_jazz.o mips_malta.o mips_mipssim.o
 obj-mips-y += mips_timer.o mips_int.o dma.o vga.o serial.o i8254.o i8259.o rc4030.o

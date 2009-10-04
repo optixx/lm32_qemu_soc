@@ -219,6 +219,7 @@ enum bfd_architecture
 #define bfd_mach_cris_v32      32
 #define bfd_mach_cris_v10_v32  1032
   bfd_arch_microblaze, /* Xilinx MicroBlaze.  */
+  bfd_arch_lm32,       /* LatticeMico32 */
   bfd_arch_last
   };
 #define bfd_mach_s390_31 31
@@ -401,6 +402,7 @@ extern int print_insn_ppc		(bfd_vma, disassemble_info*);
 extern int print_insn_s390		(bfd_vma, disassemble_info*);
 extern int print_insn_crisv32           (bfd_vma, disassemble_info*);
 extern int print_insn_microblaze        (bfd_vma, disassemble_info*);
+extern int print_insn_lm32        (bfd_vma, disassemble_info*);
 
 #if 0
 /* Fetch the disassembler for a given BFD, if that support is available.  */

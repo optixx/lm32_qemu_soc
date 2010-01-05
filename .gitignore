@@ -50,3 +50,6 @@ pc-bios/optionrom/linuxboot.bin
 pc-bios/optionrom/multiboot.bin
 pc-bios/optionrom/multiboot.raw
 .stgit-*
+*~
+tags
+*.swp

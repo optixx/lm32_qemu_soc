@@ -140,7 +140,7 @@ static inline void t_gen_raise_exception(DisasContext *dc, uint32_t index)
     gen_helper_raise_exception(tmp);
     tcg_temp_free_i32(tmp);
 
-    dc->is_jmp = DISAS_UPDATE;
+    dc->is_jmp = DISAS_JUMP;
 }
 
 /* FIXME have a look at microblaze target */
@@ -413,6 +413,8 @@ static void dec_divu(DisasContext *dc)
     t_gen_raise_exception(dc, EXCP_DIVIDE_BY_ZERO);
     gen_set_label(l1);
     tcg_gen_div_tl(cpu_R[dc->r2], cpu_R[dc->r0], cpu_R[dc->r1]);
+	/* FIXME */
+    tcg_gen_movi_tl(cpu_pc, dc->pc + 4);
 }
 
 static void dec_lb(DisasContext *dc)

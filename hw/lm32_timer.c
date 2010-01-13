@@ -85,11 +85,12 @@ static uint32_t timer_read(void *opaque, target_phys_addr_t addr)
             r = t->r_snapshot;
             break;
         default:
-            hw_error("lm32_timer: read access to unkown register 0x%x", addr);
+            hw_error("lm32_timer: read access to unkown register 0x"
+					TARGET_FMT_plx, addr);
             break;
 
     }
-    D(printf("%s %x=%x\n", __func__, addr * 4, r));
+    D(printf("%s " TARGET_FMT_plx "=%x\n", __func__, addr * 4, r));
     return r;
 }
 
@@ -98,8 +99,8 @@ static void timer_write(void *opaque, target_phys_addr_t addr, uint32_t value)
     struct lm32_timer *t = opaque;
 
     addr >>= 2;
-    D(printf("%s addr=%x val=%x (off=%d)\n",
-             __func__, addr * 4, value, addr & 3));
+    D(printf("%s addr=" TARGET_FMT_plx " val=%x (off=%d)\n",
+             __func__, addr * 4, value, (int)addr & 3));
     switch (addr) 
     {
         case R_SR:
@@ -122,7 +123,8 @@ static void timer_write(void *opaque, target_phys_addr_t addr, uint32_t value)
             t->r_snapshot = (uint32_t)ptimer_get_count(t->ptimer);
             break;
         default:
-            hw_error("lm32_timer: read access to unkown register 0x%x", addr);
+            hw_error("lm32_timer: read access to unkown register 0x"
+					TARGET_FMT_plx, addr);
             break;
     }
     timer_update_irq(t);

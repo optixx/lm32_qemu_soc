@@ -126,7 +126,7 @@ static uint32_t uart_read(void *opaque, target_phys_addr_t addr)
         case R_LSR:
         case R_MSR:
             r = s->regs[addr];
-            D(qemu_log("%s addr=%x v=%x\n", __func__, addr, r));
+            D(qemu_log("%s addr=" TARGET_FMT_plx " v=%x\n", __func__, addr, r));
             break;
 
         /* write only registers */
@@ -142,7 +142,7 @@ static uint32_t uart_read(void *opaque, target_phys_addr_t addr)
             break;
     }
 
-    D(qemu_log("uart_read addr=%02x value=%08x\n", addr, r));
+    D(qemu_log("uart_read addr=" TARGET_FMT_plx " value=%08x\n", addr, r));
 
     return r;
 }
@@ -150,7 +150,7 @@ static uint32_t uart_read(void *opaque, target_phys_addr_t addr)
 static void
 uart_write(void *opaque, target_phys_addr_t addr, uint32_t value)
 {
-    D(qemu_log("uart_write addr=%02x value=%08x\n", addr, value));
+    D(qemu_log("uart_write addr=" TARGET_FMT_plx " value=%08x\n", addr, value));
     struct lm32_uart *s = opaque;
     unsigned char ch = value;
 
@@ -173,7 +173,8 @@ uart_write(void *opaque, target_phys_addr_t addr, uint32_t value)
         case R_MCR:
         case R_DIV:
             s->regs[addr] = value;
-            D(qemu_log("%s addr=%x v=%x\n", __func__, addr, value));
+            D(qemu_log("%s addr=" TARGET_FMT_plx " v=%x\n",
+						__func__, addr, value));
             break;
 
         default:

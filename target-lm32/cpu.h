@@ -239,6 +239,7 @@ static inline void cpu_get_tb_cpu_state(CPUState *env, target_ulong *pc,
 {
     *pc = env->pc;
     *cs_base = 0;
+	*flags = 0;
 }
 
 void do_unassigned_access(target_phys_addr_t addr, int is_write, int is_exec,

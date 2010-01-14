@@ -227,15 +227,18 @@ static void dec_bi(DisasContext *dc)
 
 static inline void gen_cond_branch(DisasContext *dc, int cond)
 {
-    int l1;
+    int l1,l2;
 
     l1 = gen_new_label();
+    l2 = gen_new_label();
     tcg_gen_brcond_tl(cond, cpu_R[dc->r0], cpu_R[dc->r1], l1);
-    /* FIXME double goto_tb, see main loop*/
-    gen_goto_tb(dc, 0, dc->pc + 4);
+    tcg_gen_movi_tl(cpu_pc, dc->pc + 4);
+    tcg_gen_br(l2);
     gen_set_label(l1);
-    /* FIXME double goto_tb, see main loop */
-    gen_goto_tb(dc, 0, dc->pc + (sign_extend(dc->imm16 << 2, 16)));
+    tcg_gen_movi_tl(cpu_pc, dc->pc + (sign_extend(dc->imm16 << 2, 16)));
+    gen_set_label(l2);
+
+    dc->is_jmp = DISAS_JUMP;
 }
 
 static void dec_be(DisasContext *dc)
@@ -243,7 +246,6 @@ static void dec_be(DisasContext *dc)
     LOG_DIS("be r%d, r%d, %d\n", dc->r1, dc->r0, sign_extend(dc->imm16, 16));
 
     gen_cond_branch(dc, TCG_COND_EQ);
-    dc->is_jmp = DISAS_JUMP;
 }
 
 static void dec_bg(DisasContext *dc)
@@ -251,7 +253,6 @@ static void dec_bg(DisasContext *dc)
     LOG_DIS("bg r%d, r%d, %d\n", dc->r1, dc->r0, sign_extend(dc->imm16, 16));
 
     gen_cond_branch(dc, TCG_COND_GT);
-    dc->is_jmp = DISAS_JUMP;
 }
 
 static void dec_bge(DisasContext *dc)
@@ -259,7 +260,6 @@ static void dec_bge(DisasContext *dc)
     LOG_DIS("bge r%d, r%d, %d\n", dc->r1, dc->r0, sign_extend(dc->imm16, 16));
 
     gen_cond_branch(dc, TCG_COND_GE);
-    dc->is_jmp = DISAS_JUMP;
 }
 
 static void dec_bgeu(DisasContext *dc)
@@ -267,7 +267,6 @@ static void dec_bgeu(DisasContext *dc)
     LOG_DIS("bg r%d, r%d, %d\n", dc->r1, dc->r0, sign_extend(dc->imm16, 16));
 
     gen_cond_branch(dc, TCG_COND_GEU);
-    dc->is_jmp = DISAS_JUMP;
 }
 
 static void dec_bgu(DisasContext *dc)
@@ -275,7 +274,6 @@ static void dec_bgu(DisasContext *dc)
     LOG_DIS("bgu r%d, r%d, %d\n", dc->r1, dc->r0, sign_extend(dc->imm16, 16));
 
     gen_cond_branch(dc, TCG_COND_GTU);
-    dc->is_jmp = DISAS_JUMP;
 }
 
 static void dec_bne(DisasContext *dc)
@@ -283,7 +281,6 @@ static void dec_bne(DisasContext *dc)
     LOG_DIS("bne r%d, r%d, %d\n", dc->r1, dc->r0, sign_extend(dc->imm16, 16));
 
     gen_cond_branch(dc, TCG_COND_NE);
-    dc->is_jmp = DISAS_JUMP;
 }
 
 static void dec_call(DisasContext *dc)

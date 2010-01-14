@@ -3,6 +3,8 @@
  - gdb support (?!)
  - support for the three cpu flavours
  - support for dynamic board options
+ - opcode tests
+ - linux-user emulation
 
 hw:
  - uart: fifo mode

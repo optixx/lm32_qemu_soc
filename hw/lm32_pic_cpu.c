@@ -31,8 +31,8 @@ static void lm32_pic_cpu_handler(void *opaque, int irq, int level)
 {
     CPUState *env = (CPUState *)opaque;
 
+    env->ip |= (1 << irq);
     if ((env->ie & IE_IE) && ((1 << irq) & env->im)) {
-        env->ip |= (1 << irq);
         cpu_interrupt(env, CPU_INTERRUPT_HARD);
     }
 }

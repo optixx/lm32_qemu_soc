@@ -431,8 +431,7 @@ int cpu_exec(CPUState *env1)
                     }
 #elif defined(TARGET_LM32)
                     if ((interrupt_request & CPU_INTERRUPT_HARD)
-						&& (env->ie & IE_IE)
-						&& env->ip) {
+						&& (env->ie & IE_IE) && (env->ip & env->im)) {
                         env->exception_index = EXCP_IRQ;
                         do_interrupt(env);
                         next_tb = 0;

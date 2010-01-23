@@ -135,8 +135,6 @@ static inline int sign_extend(unsigned int val, int width)
 static inline void t_gen_raise_exception(DisasContext *dc, uint32_t index)
 {
     TCGv_i32 tmp = tcg_const_i32(index);
-
-    tcg_gen_movi_tl(cpu_pc, dc->pc);
     gen_helper_raise_exception(tmp);
     tcg_temp_free_i32(tmp);
 }
@@ -405,6 +403,7 @@ static void dec_divu(DisasContext *dc)
     int l1 = gen_new_label();
 
     tcg_gen_brcondi_tl(TCG_COND_NE, cpu_R[dc->r1], 0, l1);
+    tcg_gen_movi_tl(cpu_pc, dc->pc);
     t_gen_raise_exception(dc, EXCP_DIVIDE_BY_ZERO);
     gen_set_label(l1);
     tcg_gen_div_tl(cpu_R[dc->r2], cpu_R[dc->r0], cpu_R[dc->r1]);
@@ -530,6 +529,7 @@ static void dec_raise(DisasContext *dc)
 {
     LOG_DIS("break\n");
 
+    tcg_gen_movi_tl(cpu_pc, dc->pc);
     t_gen_raise_exception(dc, EXCP_SYSTEMCALL);
 }
 
@@ -921,6 +921,7 @@ static void check_breakpoint(CPUState *env, DisasContext *dc)
     if (unlikely(!QTAILQ_EMPTY(&env->breakpoints))) {
         QTAILQ_FOREACH(bp, &env->breakpoints, entry) {
             if (bp->pc == dc->pc) {
+                tcg_gen_movi_tl(cpu_pc, dc->pc);
                 t_gen_raise_exception(dc, EXCP_DEBUG);
                 dc->is_jmp = DISAS_UPDATE;
              }
@@ -997,8 +998,6 @@ gen_intermediate_code_internal(CPUState *env, TranslationBlock *tb,
         dc->pc += 4;
         num_insns++;
 
-        if (env->singlestep_enabled)
-            break;
     } while (!dc->is_jmp
          && gen_opc_ptr < gen_opc_end
          && !env->singlestep_enabled
@@ -1011,9 +1010,9 @@ gen_intermediate_code_internal(CPUState *env, TranslationBlock *tb,
     }
 
     if (unlikely(env->singlestep_enabled)) {
-        t_gen_raise_exception(dc, EXCP_DEBUG);
         if (dc->is_jmp == DISAS_NEXT)
             tcg_gen_movi_tl(cpu_pc, dc->pc);
+        t_gen_raise_exception(dc, EXCP_DEBUG);
     } else {
         switch(dc->is_jmp) {
             case DISAS_NEXT:

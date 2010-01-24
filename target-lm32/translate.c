@@ -181,7 +181,12 @@ static void dec_and(DisasContext *dc)
     if (dc->format == OP_FMT_RI) {
         tcg_gen_andi_tl(cpu_R[dc->r1], cpu_R[dc->r0], zero_extend(dc->imm16, 16));
     } else  {
-        tcg_gen_and_tl(cpu_R[dc->r2], cpu_R[dc->r0], cpu_R[dc->r1]);
+        if (dc->r0 == 0 && dc->r1 == 0 && dc->r2 == 0) {
+            tcg_gen_movi_tl(cpu_pc, dc->pc);
+            gen_helper_hlt();
+        } else {
+            tcg_gen_and_tl(cpu_R[dc->r2], cpu_R[dc->r0], cpu_R[dc->r1]);
+        }
     }
 }
 

@@ -22,6 +22,13 @@ void helper_raise_exception(uint32_t index)
     cpu_loop_exit();
 }
 
+void helper_hlt(void)
+{
+	env->halted = 1;
+	env->exception_index = EXCP_HLT;
+	cpu_loop_exit();
+}
+
 /* Try to fill the TLB and return an exception if error. If retaddr is
    NULL, it means that the function was called in C code (i.e. not
    from generated code or from helper.c) */

@@ -31,10 +31,11 @@ static void lm32_pic_cpu_handler(void *opaque, int irq, int level)
 {
     CPUState *env = (CPUState *)opaque;
 
-    env->ip |= (1 << irq);
-    if ((env->ie & IE_IE) && ((1 << irq) & env->im)) {
-        cpu_interrupt(env, CPU_INTERRUPT_HARD);
-    }
+	env->ip |= (1 << irq);
+	if ((env->ie & IE_IE) && (env->ip & env->im))
+		cpu_interrupt(env, CPU_INTERRUPT_HARD);
+	else
+		cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
 }
 
 qemu_irq *lm32_pic_init_cpu(CPUState *env);

@@ -59,9 +59,7 @@ struct lm32_timer
 
 static void timer_update_irq(struct lm32_timer *t)
 {
-    if (t->r_status & SR_TO && t->r_control & CR_ITO) {
-        qemu_set_irq(t->irq, 1);
-    }
+    qemu_set_irq(t->irq, t->r_status & SR_TO && t->r_control & CR_ITO);
 }
 
 static uint32_t timer_read(void *opaque, target_phys_addr_t addr)

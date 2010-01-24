@@ -139,11 +139,18 @@ static inline void t_gen_raise_exception(DisasContext *dc, uint32_t index)
     tcg_temp_free_i32(tmp);
 }
 
-/* FIXME have a look at microblaze target */
 static void gen_goto_tb(DisasContext *dc, int n, target_ulong dest)
 {
-    tcg_gen_movi_tl(cpu_pc, dest);
-    tcg_gen_exit_tb(0);
+    TranslationBlock *tb;
+    tb = dc->tb;
+    if ((tb->pc & TARGET_PAGE_MASK) == (dest & TARGET_PAGE_MASK)) {
+        tcg_gen_goto_tb(n);
+        tcg_gen_movi_tl(cpu_pc, dest);
+        tcg_gen_exit_tb((long)tb + n);
+    } else {
+        tcg_gen_movi_tl(cpu_pc, dest);
+        tcg_gen_exit_tb(0);
+    }
 }
 
 static void dec_add(DisasContext *dc)
@@ -218,25 +225,19 @@ static void dec_bi(DisasContext *dc)
 {
     LOG_DIS("bi %d\n", sign_extend(dc->imm26 << 2, 26));
 
-    tcg_gen_movi_tl(cpu_pc, dc->pc + (sign_extend(dc->imm26 << 2, 26)));
+    gen_goto_tb(dc, 0, dc->pc + (sign_extend(dc->imm26 << 2, 26)));
 
-    dc->is_jmp = DISAS_JUMP;
+    dc->is_jmp = DISAS_TB_JUMP;
 }
 
 static inline void gen_cond_branch(DisasContext *dc, int cond)
 {
-    int l1,l2;
-
-    l1 = gen_new_label();
-    l2 = gen_new_label();
+    int l1 = gen_new_label();
     tcg_gen_brcond_tl(cond, cpu_R[dc->r0], cpu_R[dc->r1], l1);
-    tcg_gen_movi_tl(cpu_pc, dc->pc + 4);
-    tcg_gen_br(l2);
+    gen_goto_tb(dc, 0, dc->pc + 4);
     gen_set_label(l1);
-    tcg_gen_movi_tl(cpu_pc, dc->pc + (sign_extend(dc->imm16 << 2, 16)));
-    gen_set_label(l2);
-
-    dc->is_jmp = DISAS_JUMP;
+    gen_goto_tb(dc, 1, dc->pc + (sign_extend(dc->imm16 << 2, 16)));
+    dc->is_jmp = DISAS_TB_JUMP;
 }
 
 static void dec_be(DisasContext *dc)
@@ -296,9 +297,9 @@ static void dec_calli(DisasContext *dc)
     LOG_DIS("calli %d\n", sign_extend(dc->imm26, 26));
 
     tcg_gen_movi_tl(cpu_R[R_RA], dc->pc + 4);
-    tcg_gen_movi_tl(cpu_pc, dc->pc + (sign_extend(dc->imm26 << 2, 26)));
+    gen_goto_tb(dc, 0, dc->pc + (sign_extend(dc->imm26 << 2, 26)));
 
-    dc->is_jmp = DISAS_JUMP;
+    dc->is_jmp = DISAS_TB_JUMP;
 }
 
 static inline void gen_compare(DisasContext *dc, int cond)

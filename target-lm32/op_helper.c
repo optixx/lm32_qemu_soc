@@ -29,6 +29,14 @@ void helper_hlt(void)
 	cpu_loop_exit();
 }
 
+void helper_update_interrupt(void)
+{
+    if ((env->ie & IE_IE) && (env->ip & env->im))
+        cpu_interrupt(env, CPU_INTERRUPT_HARD);
+    else
+        cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
+}
+
 /* Try to fill the TLB and return an exception if error. If retaddr is
    NULL, it means that the function was called in C code (i.e. not
    from generated code or from helper.c) */

@@ -714,9 +714,11 @@ static void dec_wcsr(DisasContext *dc)
     switch(dc->csr) {
         case CSR_IE:
             tcg_gen_mov_tl(cpu_ie, cpu_R[dc->r1]);
+            gen_helper_update_interrupt();
             break;
         case CSR_IM:
             tcg_gen_mov_tl(cpu_im, cpu_R[dc->r1]);
+            gen_helper_update_interrupt();
             break;
         case CSR_IP:
             /* ack interrupt */
@@ -724,6 +726,7 @@ static void dec_wcsr(DisasContext *dc)
             tcg_gen_not_tl(t0, cpu_R[dc->r1]);
             tcg_gen_and_tl(cpu_ip, cpu_ip, t0);
             tcg_temp_free(t0);
+            gen_helper_update_interrupt();
             break;
         case CSR_ICC:
             /* TODO */

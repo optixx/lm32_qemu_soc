@@ -179,6 +179,9 @@ typedef struct CPULM32State {
     uint32_t bp[4];     /* breakpoint addresses */
     uint32_t wp[4];     /* watchpoint addresses */
 
+    /* private flags */
+    uint32_t irq_state; /* remember interrupt states */
+
     CPU_COMMON
 } CPULM32State;
 
@@ -239,7 +242,7 @@ static inline void cpu_get_tb_cpu_state(CPUState *env, target_ulong *pc,
 {
     *pc = env->pc;
     *cs_base = 0;
-	*flags = 0;
+    *flags = 0;
 }
 
 void do_unassigned_access(target_phys_addr_t addr, int is_write, int is_exec,

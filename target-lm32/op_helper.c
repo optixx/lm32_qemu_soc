@@ -24,17 +24,19 @@ void helper_raise_exception(uint32_t index)
 
 void helper_hlt(void)
 {
-	env->halted = 1;
-	env->exception_index = EXCP_HLT;
-	cpu_loop_exit();
+    env->halted = 1;
+    env->exception_index = EXCP_HLT;
+    cpu_loop_exit();
 }
 
 void helper_update_interrupt(void)
 {
+    env->ip |= env->irq_state;
+
     if ((env->ie & IE_IE) && (env->ip & env->im))
-        cpu_interrupt(env, CPU_INTERRUPT_HARD);
+        env->interrupt_request |= CPU_INTERRUPT_HARD;
     else
-        cpu_reset_interrupt(env, CPU_INTERRUPT_HARD);
+        env->interrupt_request &= ~CPU_INTERRUPT_HARD;
 }
 
 /* Try to fill the TLB and return an exception if error. If retaddr is

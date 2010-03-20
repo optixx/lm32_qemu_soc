@@ -3,6 +3,8 @@
 #include "helper.h"
 #include "host-utils.h"
 
+#include "hw/lm32_pic.h"
+
 #define D(x)
 
 #if !defined(CONFIG_USER_ONLY)
@@ -29,14 +31,24 @@ void helper_hlt(void)
     cpu_loop_exit();
 }
 
-void helper_update_interrupt(void)
+void helper_wcsr_im(uint32_t im)
 {
-    env->ip |= env->irq_state;
+    lm32_pic_set_im(env->pic_handle, im);
+}
 
-    if ((env->ie & IE_IE) && (env->ip & env->im))
-        env->interrupt_request |= CPU_INTERRUPT_HARD;
-    else
-        env->interrupt_request &= ~CPU_INTERRUPT_HARD;
+void helper_wcsr_ip(uint32_t im)
+{
+    lm32_pic_set_ip(env->pic_handle, im);
+}
+
+uint32_t helper_rcsr_im(void)
+{
+    return lm32_pic_get_im(env->pic_handle);
+}
+
+uint32_t helper_rcsr_ip(void)
+{
+    return lm32_pic_get_ip(env->pic_handle);
 }
 
 /* Try to fill the TLB and return an exception if error. If retaddr is

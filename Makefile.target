@@ -219,6 +219,7 @@ obj-ppc-$(CONFIG_KVM) += kvm_ppc.o
 obj-ppc-$(CONFIG_FDT) += device_tree.o
 
 obj-lm32-y += lm32_pic_cpu.o
+obj-lm32-y += lm32_pic.o
 obj-lm32-y += lm32_boards.o
 obj-lm32-y += lm32_timer.o
 obj-lm32-y += lm32_uart.o

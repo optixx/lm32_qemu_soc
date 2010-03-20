@@ -1406,6 +1406,7 @@ static int cpu_gdb_write_register(CPUState *env, uint8_t *mem_buf, int n)
 }
 #elif defined (TARGET_LM32)
 
+#include "hw/lm32_pic.h"
 #define NUM_CORE_REGS (32 + 7)
 
 static int cpu_gdb_read_register(CPUState *env, uint8_t *mem_buf, int n)
@@ -1420,8 +1421,8 @@ static int cpu_gdb_read_register(CPUState *env, uint8_t *mem_buf, int n)
             case 34: GET_REG32(env->eba); break;
             case 35: GET_REG32(env->deba); break;
             case 36: GET_REG32(env->ie); break;
-            case 37: GET_REG32(env->im); break;
-            case 38: GET_REG32(env->ip); break;
+            case 37: GET_REG32(lm32_pic_get_im(env->pic_handle)); break;
+            case 38: GET_REG32(lm32_pic_get_ip(env->pic_handle)); break;
         }
     }
     return 0;
@@ -1445,8 +1446,8 @@ static int cpu_gdb_write_register(CPUState *env, uint8_t *mem_buf, int n)
             case 34: env->eba = tmp; break;
             case 35: env->deba = tmp; break;
             case 36: env->ie = tmp; break;
-            case 37: env->im = tmp; break;
-            case 38: env->ip = tmp; break;
+            case 37: lm32_pic_set_im(env->pic_handle, tmp); break;
+            case 38: lm32_pic_set_ip(env->pic_handle, tmp); break;
         }
     }
     return 4;

@@ -32,6 +32,8 @@
 #include "lm32-decode.h"
 #include "qemu-common.h"
 
+#include "hw/lm32_pic.h"
+
 #define GEN_HELPER 1
 #include "helper.h"
 
@@ -53,8 +55,6 @@ static TCGv_ptr cpu_env;
 static TCGv cpu_R[R_NUM];
 static TCGv cpu_pc;
 static TCGv cpu_ie;
-static TCGv cpu_im;
-static TCGv cpu_ip;
 static TCGv cpu_icc;
 static TCGv cpu_dcc;
 static TCGv cpu_cc;
@@ -549,10 +549,10 @@ static void dec_rcsr(DisasContext *dc)
             tcg_gen_mov_tl(cpu_R[dc->r2], cpu_ie);
             break;
         case CSR_IM:
-            tcg_gen_mov_tl(cpu_R[dc->r2], cpu_im);
+			gen_helper_rcsr_im(cpu_R[dc->r2]);
             break;
         case CSR_IP:
-            tcg_gen_mov_tl(cpu_R[dc->r2], cpu_ip);
+			gen_helper_rcsr_ip(cpu_R[dc->r2]);
             break;
         case CSR_CC:
             tcg_gen_mov_tl(cpu_R[dc->r2], cpu_cc);
@@ -709,24 +709,21 @@ static void dec_wcsr(DisasContext *dc)
 {
     LOG_DIS("wcsr r%d, %d\n", dc->r1, dc->csr);
 
-    TCGv t0;
-
     switch(dc->csr) {
         case CSR_IE:
             tcg_gen_mov_tl(cpu_ie, cpu_R[dc->r1]);
-            gen_helper_update_interrupt();
+            tcg_gen_movi_tl(cpu_pc, dc->pc + 4);
+			dc->is_jmp = DISAS_UPDATE;
             break;
         case CSR_IM:
-            tcg_gen_mov_tl(cpu_im, cpu_R[dc->r1]);
-            gen_helper_update_interrupt();
+			gen_helper_wcsr_im(cpu_R[dc->r1]);
+            tcg_gen_movi_tl(cpu_pc, dc->pc + 4);
+			dc->is_jmp = DISAS_UPDATE;
             break;
         case CSR_IP:
-            /* ack interrupt */
-            t0 = tcg_temp_new();
-            tcg_gen_not_tl(t0, cpu_R[dc->r1]);
-            tcg_gen_and_tl(cpu_ip, cpu_ip, t0);
-            tcg_temp_free(t0);
-            gen_helper_update_interrupt();
+			gen_helper_wcsr_ip(cpu_R[dc->r1]);
+            tcg_gen_movi_tl(cpu_pc, dc->pc + 4);
+			dc->is_jmp = DISAS_UPDATE;
             break;
         case CSR_ICC:
             /* TODO */
@@ -1089,7 +1086,8 @@ void cpu_dump_state(CPUState *env, FILE *f,
              (env->ie & IE_IE) ? 1 : 0,
              (env->ie & IE_EIE) ? 1 : 0,
              (env->ie & IE_BIE) ? 1 : 0,
-             env->im, env->ip);
+             lm32_pic_get_im(env->pic_handle),
+             lm32_pic_get_ip(env->pic_handle));
     cpu_fprintf(f, "eba=%8.8x deba=%8.8x\n",
              env->eba,
              env->deba);
@@ -1154,12 +1152,6 @@ CPUState *cpu_lm32_init(const char *cpu_model)
     cpu_ie = tcg_global_mem_new(TCG_AREG0,
                     offsetof(CPUState, ie),
                     "ie");
-    cpu_im = tcg_global_mem_new(TCG_AREG0,
-                    offsetof(CPUState, im),
-                    "im");
-    cpu_ip = tcg_global_mem_new(TCG_AREG0,
-                    offsetof(CPUState, ip),
-                    "ip");
     cpu_icc = tcg_global_mem_new(TCG_AREG0,
                     offsetof(CPUState, icc),
                     "icc");
@@ -1187,6 +1179,7 @@ CPUState *cpu_lm32_init(const char *cpu_model)
     cpu_jtx = tcg_global_mem_new(TCG_AREG0,
                     offsetof(CPUState, jtx),
                     "jtx");
+	
     return env;
 }
 

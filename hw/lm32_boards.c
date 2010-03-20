@@ -51,7 +51,9 @@ lm32_evr_init(ram_addr_t ram_size_not_used,
     DriveInfo *dinfo;
     ram_addr_t phys_ram;
     ram_addr_t phys_flash;
-    qemu_irq *irq;
+    qemu_irq *cpu_irq, irq[32];
+    DeviceState *dev;
+    int i;
 
     /* memory map */
     ram_addr_t flash_base    = 0x04000000;
@@ -83,7 +85,14 @@ lm32_evr_init(ram_addr_t ram_size_not_used,
                           flash_size / flash_sector_size, 1, 4,
                           0x01, 0x7e, 0x43, 0x00, 0x555, 0x2aa);
 
-    irq = lm32_pic_init_cpu(env);
+    cpu_irq = lm32_pic_init_cpu(env);
+    dev = sysbus_create_simple("lm32,pic", -1, *cpu_irq);
+    /* XXX is there any better way to do this? */
+    env->pic_handle = (struct lm32_pic*)dev;
+    for (i = 0; i < 32; i++) {
+        irq[i] = qdev_get_gpio_in(dev, i);
+    }
+
     sysbus_create_simple("lm32,uart", uart0_base, irq[uart0_irq]);
     sysbus_create_simple("lm32,timer", timer0_base, irq[timer0_irq]);
 
@@ -111,7 +120,9 @@ lm32_uclinux_init(ram_addr_t ram_size_not_used,
     DriveInfo *dinfo;
     ram_addr_t phys_ram;
     ram_addr_t phys_flash;
-    qemu_irq *irq;
+    qemu_irq *cpu_irq, irq[32];
+    DeviceState *dev;
+    int i;
 
     /* memory map */
     ram_addr_t flash_base    = 0x04000000;
@@ -151,7 +162,14 @@ lm32_uclinux_init(ram_addr_t ram_size_not_used,
                           flash_size / flash_sector_size, 1, 4,
                           0x01, 0x7e, 0x43, 0x00, 0x555, 0x2aa);
 
-    irq = lm32_pic_init_cpu(env);
+    cpu_irq = lm32_pic_init_cpu(env);
+    dev = sysbus_create_simple("lm32,pic", -1, *cpu_irq);
+    /* XXX is there any better way to do this? */
+    env->pic_handle = (struct lm32_pic*)dev;
+    for (i = 0; i < 32; i++) {
+        irq[i] = qdev_get_gpio_in(dev, i);
+    }
+
     sysbus_create_simple("lm32,uart", uart0_base, irq[uart0_irq]);
     sysbus_create_simple("lm32,timer", timer0_base, irq[timer0_irq]);
     sysbus_create_simple("lm32,timer", timer1_base, irq[timer1_irq]);

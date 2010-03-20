@@ -163,8 +163,6 @@ typedef struct CPULM32State {
     /* special registers */
     uint32_t pc;        /* program counter */
     uint32_t ie;        /* interrupt enable */
-    uint32_t im;        /* interrupt mask */
-    uint32_t ip;        /* interrupt pending */
     uint32_t icc;       /* instruction cache control */
     uint32_t dcc;       /* data cache control */
     uint32_t cc;        /* cycle counter */
@@ -179,8 +177,8 @@ typedef struct CPULM32State {
     uint32_t bp[4];     /* breakpoint addresses */
     uint32_t wp[4];     /* watchpoint addresses */
 
-    /* private flags */
-    uint32_t irq_state; /* remember interrupt states */
+    /* interrupt controller handle for callbacks */
+    struct lm32_pic *pic_handle;
 
     CPU_COMMON
 } CPULM32State;

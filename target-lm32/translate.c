@@ -406,6 +406,10 @@ static void dec_divu(DisasContext *dc)
 {
     LOG_DIS("divu r%d, r%d, r%d\n", dc->r2, dc->r0, dc->r1);
 
+    if (!(dc->env->features & LM32_FEATURE_DIVIDE)) {
+        cpu_abort(dc->env, "hardware divider is not available\n");
+    }
+
     int l1 = gen_new_label();
 
     tcg_gen_brcondi_tl(TCG_COND_NE, cpu_R[dc->r1], 0, l1);
@@ -469,6 +473,10 @@ static void dec_modu(DisasContext *dc)
 {
     LOG_DIS("modu r%d, r%d, %d\n", dc->r2, dc->r0, dc->r1);
 
+    if (!(dc->env->features & LM32_FEATURE_DIVIDE)) {
+        cpu_abort(dc->env, "hardware divider is not available\n");
+    }
+
     tcg_gen_remu_tl(cpu_R[dc->r2], cpu_R[dc->r0], cpu_R[dc->r1]);
 }
 
@@ -481,8 +489,13 @@ static void dec_mul(DisasContext *dc)
         LOG_DIS("mul r%d, r%d, r%d\n", dc->r2, dc->r0, dc->r1);
     }
 
+    if (!(dc->env->features & LM32_FEATURE_MULTIPLY)) {
+        cpu_abort(dc->env, "hardware multiplier is not available\n");
+    }
+
     if (dc->format == OP_FMT_RI) {
-        tcg_gen_muli_tl(cpu_R[dc->r1], cpu_R[dc->r0], sign_extend(dc->imm16, 16));
+        tcg_gen_muli_tl(cpu_R[dc->r1], cpu_R[dc->r0],
+                sign_extend(dc->imm16, 16));
     } else {
         tcg_gen_mul_tl(cpu_R[dc->r2], cpu_R[dc->r0], cpu_R[dc->r1]);
     }
@@ -549,10 +562,10 @@ static void dec_rcsr(DisasContext *dc)
             tcg_gen_mov_tl(cpu_R[dc->r2], cpu_ie);
             break;
         case CSR_IM:
-			gen_helper_rcsr_im(cpu_R[dc->r2]);
+            gen_helper_rcsr_im(cpu_R[dc->r2]);
             break;
         case CSR_IP:
-			gen_helper_rcsr_ip(cpu_R[dc->r2]);
+            gen_helper_rcsr_ip(cpu_R[dc->r2]);
             break;
         case CSR_CC:
             tcg_gen_mov_tl(cpu_R[dc->r2], cpu_cc);
@@ -607,12 +620,20 @@ static void dec_sextb(DisasContext *dc)
 {
     LOG_DIS("sextb r%d, r%d\n", dc->r2, dc->r0);
 
+    if (!(dc->env->features & LM32_FEATURE_SIGN_EXTEND)) {
+        cpu_abort(dc->env, "hardware sign extender is not available\n");
+    }
+
     tcg_gen_ext8s_tl(cpu_R[dc->r2], cpu_R[dc->r0]);
 }
 
 static void dec_sexth(DisasContext *dc)
 {
     LOG_DIS("sexth r%d, r%d\n", dc->r2, dc->r0);
+
+    if (!(dc->env->features & LM32_FEATURE_SIGN_EXTEND)) {
+        cpu_abort(dc->env, "hardware sign extender is not available\n");
+    }
 
     tcg_gen_ext16s_tl(cpu_R[dc->r2], cpu_R[dc->r0]);
 }
@@ -635,6 +656,10 @@ static void dec_sl(DisasContext *dc)
         LOG_DIS("sl r%d, r%d, r%d\n", dc->r2, dc->r0, dc->r1);
     }
 
+    if (!(dc->env->features & LM32_FEATURE_SHIFT)) {
+        cpu_abort(dc->env, "hardware shifter is not available\n");
+    }
+
     if (dc->format == OP_FMT_RI) {
         tcg_gen_shli_tl(cpu_R[dc->r1], cpu_R[dc->r0], dc->imm5);
     } else {
@@ -653,6 +678,16 @@ static void dec_sr(DisasContext *dc)
         LOG_DIS("sr r%d, r%d, r%d\n", dc->r2, dc->r0, dc->r1);
     }
 
+    if (!(dc->env->features & LM32_FEATURE_SHIFT)) {
+        if (dc->format == OP_FMT_RI) {
+            /* TODO: check r1 == 1 during runtime */
+        } else {
+            if (dc->imm5 != 1) {
+                cpu_abort(dc->env, "hardware shifter is not available\n");
+            }
+        }
+    }
+
     if (dc->format == OP_FMT_RI) {
         tcg_gen_sari_tl(cpu_R[dc->r1], cpu_R[dc->r0], dc->imm5);
     } else {
@@ -669,6 +704,16 @@ static void dec_sru(DisasContext *dc)
         LOG_DIS("srui r%d, r%d, %d\n", dc->r1, dc->r0, dc->imm5);
     } else {
         LOG_DIS("sru r%d, r%d, r%d\n", dc->r2, dc->r0, dc->r1);
+    }
+
+    if (!(dc->env->features & LM32_FEATURE_SHIFT)) {
+        if (dc->format == OP_FMT_RI) {
+            /* TODO: check r1 == 1 during runtime */
+        } else {
+            if (dc->imm5 != 1) {
+                cpu_abort(dc->env, "hardware shifter is not available\n");
+            }
+        }
     }
 
     if (dc->format == OP_FMT_RI) {
@@ -702,7 +747,7 @@ static void dec_user(DisasContext *dc)
 {
     LOG_DIS("user");
 
-    cpu_abort(dc->env, "user insn undefined");
+    cpu_abort(dc->env, "user insn undefined\n");
 }
 
 static void dec_wcsr(DisasContext *dc)
@@ -713,17 +758,17 @@ static void dec_wcsr(DisasContext *dc)
         case CSR_IE:
             tcg_gen_mov_tl(cpu_ie, cpu_R[dc->r1]);
             tcg_gen_movi_tl(cpu_pc, dc->pc + 4);
-			dc->is_jmp = DISAS_UPDATE;
+            dc->is_jmp = DISAS_UPDATE;
             break;
         case CSR_IM:
-			gen_helper_wcsr_im(cpu_R[dc->r1]);
+            gen_helper_wcsr_im(cpu_R[dc->r1]);
             tcg_gen_movi_tl(cpu_pc, dc->pc + 4);
-			dc->is_jmp = DISAS_UPDATE;
+            dc->is_jmp = DISAS_UPDATE;
             break;
         case CSR_IP:
-			gen_helper_wcsr_ip(cpu_R[dc->r1]);
+            gen_helper_wcsr_ip(cpu_R[dc->r1]);
             tcg_gen_movi_tl(cpu_pc, dc->pc + 4);
-			dc->is_jmp = DISAS_UPDATE;
+            dc->is_jmp = DISAS_UPDATE;
             break;
         case CSR_ICC:
             /* TODO */
@@ -1100,31 +1145,15 @@ void cpu_dump_state(CPUState *env, FILE *f,
     cpu_fprintf(f, "\n\n");
 }
 
-CPUState *cpu_lm32_init(const char *cpu_model)
+void gen_pc_load(CPUState *env, struct TranslationBlock *tb,
+                 unsigned long searched_pc, int pc_pos, void *puc)
 {
-    CPUState *env;
-    static int tcg_initialized = 0;
+    env->pc = gen_opc_pc[pc_pos];
+}
+
+void lm32_translate_init(void)
+{
     int i;
-
-    env = qemu_mallocz(sizeof(CPUState));
-
-    cpu_exec_init(env);
-    cpu_reset(env);
-
-#define LM32_REV 3
-    env->cfg = CFG_M_MASK \
-               | CFG_D_MASK \
-               | CFG_S_MASK \
-               | CFG_X_MASK \
-               | CFG_IC_MASK \
-               | CFG_DC_MASK \
-               | (32 << 12) \
-               | (LM32_REV << 26);
-
-    if (tcg_initialized)
-        return env;
-
-    tcg_initialized = 1;
 
     cpu_env = tcg_global_reg_new_ptr(TCG_AREG0, "env");
 
@@ -1179,25 +1208,5 @@ CPUState *cpu_lm32_init(const char *cpu_model)
     cpu_jtx = tcg_global_mem_new(TCG_AREG0,
                     offsetof(CPUState, jtx),
                     "jtx");
-	
-    return env;
-}
-
-void cpu_reset(CPUState *env)
-{
-    if (qemu_loglevel_mask(CPU_LOG_RESET)) {
-        qemu_log("CPU Reset (CPU %d)\n", env->cpu_index);
-        log_cpu_state(env, 0);
-    }
-
-    tlb_flush(env, 1);
-
-    /* FIXME reset breakpoints and watchpoints */
-}
-
-void gen_pc_load(CPUState *env, struct TranslationBlock *tb,
-                 unsigned long searched_pc, int pc_pos, void *puc)
-{
-    env->pc = gen_opc_pc[pc_pos];
 }
 

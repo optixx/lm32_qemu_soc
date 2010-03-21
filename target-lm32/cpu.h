@@ -117,22 +117,22 @@ static inline int cpu_mmu_index(CPUState *env)
 #define DC_C3   (1<<5)
 
 /* CFG mask */
-#define CFG_M_MASK   0x00000001
-#define CFG_D_MASK   0x00000002
-#define CFG_S_MASK   0x00000004
-#define CFG_U_MASK   0x00000008
-#define CFG_X_MASK   0x00000010
-#define CFG_CC_MASK  0x00000020
-#define CFG_IC_MASK  0x00000040
-#define CFG_DC_MASK  0x00000080
-#define CFG_G_MASK   0x00000100
-#define CFG_H_MASK   0x00000200
-#define CFG_R_MASK   0x00000400
-#define CFG_J_MASK   0x00000800
-#define CFG_INT_MASK 0x0003f000
-#define CFG_BP_MASK  0x003c0000
-#define CFG_WP_MASK  0x03c00800
-#define CFG_REV_MASK 0xfc000000
+#define CFG_M          (1<<0)
+#define CFG_D          (1<<1)
+#define CFG_S          (1<<2)
+#define CFG_U          (1<<3)
+#define CFG_X          (1<<4)
+#define CFG_CC         (1<<5)
+#define CFG_IC         (1<<6)
+#define CFG_DC         (1<<7)
+#define CFG_G          (1<<8)
+#define CFG_H          (1<<9)
+#define CFG_R         (1<<10)
+#define CFG_J         (1<<11)
+#define CFG_INT_SHIFT  12
+#define CFG_BP_SHIFT   18
+#define CFG_WP_SHIFT   22
+#define CFG_REV_SHIFT  26
 
 /* CSRs */
 #define CSR_IE    0x00
@@ -155,6 +155,14 @@ static inline int cpu_mmu_index(CPUState *env)
 #define CSR_WP1   0x19
 #define CSR_WP2   0x1a
 #define CSR_WP3   0x1b
+
+#define LM32_FEATURE_MULTIPLY       1
+#define LM32_FEATURE_DIVIDE         2
+#define LM32_FEATURE_SHIFT          4
+#define LM32_FEATURE_SIGN_EXTEND    8
+#define LM32_FEATURE_I_CACHE       16
+#define LM32_FEATURE_D_CACHE       32
+#define LM32_FEATURE_CYCLE_COUNT   64
 
 typedef struct CPULM32State {
     /* general registers */
@@ -180,10 +188,15 @@ typedef struct CPULM32State {
     /* interrupt controller handle for callbacks */
     struct lm32_pic *pic_handle;
 
+    /* processor core features */
+    uint32_t features;
+
     CPU_COMMON
 } CPULM32State;
 
+
 CPUState *cpu_lm32_init(const char *cpu_model);
+void cpu_lm32_list(FILE *f, int (*cpu_fprintf)(FILE *f, const char *fmt, ...));
 int cpu_lm32_exec(CPUState *s);
 void cpu_lm32_close(CPUState *s);
 void do_interrupt(CPUState *env);
@@ -192,7 +205,9 @@ void do_interrupt(CPUState *env);
    is returned if the signal was handled by the virtual CPU.  */
 int cpu_lm32_signal_handler(int host_signum, void *pinfo,
                           void *puc);
+void lm32_translate_init(void);
 
+#define cpu_list cpu_lm32_list
 #define cpu_init cpu_lm32_init
 #define cpu_exec cpu_lm32_exec
 #define cpu_gen_code cpu_lm32_gen_code

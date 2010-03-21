@@ -67,7 +67,7 @@ lm32_evr_init(ram_addr_t ram_size_not_used,
     int timer0_irq           = 1;
 
     if (cpu_model == NULL) {
-        cpu_model = "lm32";
+        cpu_model = "lm32-full";
     }
     env = cpu_init(cpu_model);
 
@@ -140,7 +140,7 @@ lm32_uclinux_init(ram_addr_t ram_size_not_used,
     int timer2_irq           = 21;
 
     if (cpu_model == NULL) {
-        cpu_model = "lm32";
+        cpu_model = "lm32-full";
     }
     env = cpu_init(cpu_model);
 

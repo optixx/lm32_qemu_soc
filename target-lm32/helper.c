@@ -86,3 +86,148 @@ void do_interrupt(CPUState *env)
             break;
     }
 }
+
+typedef struct {
+    const char *name;
+    uint32_t revision;
+    uint32_t num_interrupts;
+    uint32_t num_breakpoints;
+    uint32_t num_watchpoints;
+    uint32_t features;
+} lm32_def_t;
+
+static lm32_def_t lm32_defs[] = {
+    {
+        .name = "lm32-basic",
+        .revision = 3,
+        .num_interrupts = 32,
+        .num_breakpoints = 4,
+        .num_watchpoints = 4,
+        .features = (  LM32_FEATURE_SHIFT
+                     | LM32_FEATURE_SIGN_EXTEND
+                     | LM32_FEATURE_CYCLE_COUNT),
+    },
+    {
+        .name = "lm32-standard",
+        .revision = 3,
+        .num_interrupts = 32,
+        .num_breakpoints = 4,
+        .num_watchpoints = 4,
+        .features = (  LM32_FEATURE_MULTIPLY
+                     | LM32_FEATURE_DIVIDE
+                     | LM32_FEATURE_SHIFT
+                     | LM32_FEATURE_SIGN_EXTEND
+                     | LM32_FEATURE_I_CACHE
+                     | LM32_FEATURE_CYCLE_COUNT),
+    },
+    {
+        .name = "lm32-full",
+        .revision = 3,
+        .num_interrupts = 32,
+        .num_breakpoints = 4,
+        .num_watchpoints = 4,
+        .features = (  LM32_FEATURE_MULTIPLY
+                     | LM32_FEATURE_DIVIDE
+                     | LM32_FEATURE_SHIFT
+                     | LM32_FEATURE_SIGN_EXTEND
+                     | LM32_FEATURE_I_CACHE
+                     | LM32_FEATURE_D_CACHE
+                     | LM32_FEATURE_CYCLE_COUNT),
+    }
+};
+
+void cpu_lm32_list(FILE *f, int (*cpu_fprintf)(FILE *f, const char *fmt, ...))
+{
+    int i;
+
+    (*cpu_fprintf)(f, "Available CPUs:\n");
+    for (i = 0; i < ARRAY_SIZE(lm32_defs); i++) {
+        (*cpu_fprintf)(f, "  %s\n", lm32_defs[i].name);
+    }
+}
+
+static const lm32_def_t *cpu_lm32_find_by_name(const char *name)
+{
+    int i;
+
+    for (i = 0; i < ARRAY_SIZE(lm32_defs); i++)
+    {
+        if (strcasecmp(name, lm32_defs[i].name) == 0) {
+            return &lm32_defs[i];
+        }
+    }
+
+    return NULL;
+}
+
+static uint32_t cfg_by_def(const lm32_def_t *def)
+{
+    uint32_t cfg = 0;
+
+    if (def->features & LM32_FEATURE_MULTIPLY)
+        cfg |= CFG_M;
+
+    if (def->features & LM32_FEATURE_DIVIDE)
+        cfg |= CFG_D;
+
+    if (def->features & LM32_FEATURE_SHIFT)
+        cfg |= CFG_S;
+
+    if (def->features & LM32_FEATURE_SIGN_EXTEND)
+        cfg |= CFG_X;
+
+    if (def->features & LM32_FEATURE_I_CACHE)
+        cfg |= CFG_IC;
+
+    if (def->features & LM32_FEATURE_D_CACHE)
+        cfg |= CFG_DC;
+
+    if (def->features & LM32_FEATURE_CYCLE_COUNT)
+        cfg |= CFG_CC;
+
+    cfg |= (def->num_interrupts << CFG_INT_SHIFT);
+    cfg |= (def->num_breakpoints << CFG_BP_SHIFT);
+    cfg |= (def->num_watchpoints << CFG_WP_SHIFT);
+    cfg |= (def->revision << CFG_REV_SHIFT);
+
+    return cfg;
+}
+
+CPUState *cpu_lm32_init(const char *cpu_model)
+{
+    CPUState *env;
+    const lm32_def_t *def;
+    static int tcg_initialized = 0;
+
+    def = cpu_lm32_find_by_name(cpu_model);
+    if (!def)
+        return NULL;
+
+    env = qemu_mallocz(sizeof(CPUState));
+
+    env->features = def->features;
+    env->cfg = cfg_by_def(def);
+
+    cpu_exec_init(env);
+    cpu_reset(env);
+
+    if (!tcg_initialized) {
+        tcg_initialized = 1;
+        lm32_translate_init();
+    }
+
+    return env;
+}
+
+void cpu_reset(CPUState *env)
+{
+    if (qemu_loglevel_mask(CPU_LOG_RESET)) {
+        qemu_log("CPU Reset (CPU %d)\n", env->cpu_index);
+        log_cpu_state(env, 0);
+    }
+
+    tlb_flush(env, 1);
+
+    /* FIXME reset breakpoints and watchpoints */
+}
+

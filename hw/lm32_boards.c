@@ -199,6 +199,64 @@ lm32_uclinux_init(ram_addr_t ram_size_not_used,
 #endif
 }
 
+static void
+lm32_soc_init(ram_addr_t ram_size_not_used,
+                          const char *boot_device,
+                          const char *kernel_filename,
+                          const char *kernel_cmdline,
+                          const char *initrd_filename, const char *cpu_model)
+{
+    CPUState *env;
+    ram_addr_t phys_ram;
+    qemu_irq *cpu_irq, irq[32];
+    DeviceState *dev;
+    int kernel_size;
+    int i;
+
+    /* memory map */
+    ram_addr_t ram_base      = 0x40000000;
+    size_t ram_size          = 16 * 1024 * 1024;
+    ram_addr_t uart0_base    = 0xf0000000;
+    ram_addr_t timer0_base   = 0xf0010000;
+    int uart0_irq            = 0;
+    int timer0_irq           = 1;
+
+    if (cpu_model == NULL) {
+        cpu_model = "lm32-full";
+    }
+    env = cpu_init(cpu_model);
+
+    env->eba = ram_base;
+    qemu_register_reset(main_cpu_reset, env);
+
+//    phys_bram = qemu_ram_alloc(bram_size);
+//    cpu_register_physical_memory(0x04000000, bram_size,
+//                                 phys_bram | IO_MEM_RAM);
+
+    phys_ram = qemu_ram_alloc(ram_size);
+    cpu_register_physical_memory(ram_base, ram_size, phys_ram | IO_MEM_RAM);
+
+    cpu_irq = lm32_pic_init_cpu(env);
+    dev = sysbus_create_simple("lm32,pic", -1, *cpu_irq);
+    /* XXX is there any better way to do this? */
+    env->pic_handle = (struct lm32_pic*)dev;
+    for (i = 0; i < 32; i++) {
+        irq[i] = qdev_get_gpio_in(dev, i);
+    }
+
+    sysbus_create_simple("lm32,uart", uart0_base, irq[uart0_irq]);
+    sysbus_create_simple("lm32,timer", timer0_base, irq[timer0_irq]);
+    uint64_t elf_entry;
+    kernel_size = load_elf(kernel_filename, ram_base, &elf_entry, NULL, NULL,
+                           0, ELF_MACHINE, 1);
+    printf("load_elf: 0x%x size=%i (%i kb) elf_entry=0x%llx\n",(int)ram_base,kernel_size, kernel_size/   1024,elf_entry);
+    if (kernel_size < 0) {
+       kernel_size = load_image_targphys(kernel_filename, ram_base,ram_size);
+       printf("load_image_targphys: 0x%x size=%i (%i kb) \n",(int)ram_base,kernel_size, kernel_size/     1024);
+     }
+    bootstrap_pc = ram_base;
+}
+
 static QEMUMachine lm32_evr_machine = {
     .name = "lm32-evr",
     .desc = "lm32-evr desc TBD",
@@ -213,10 +271,18 @@ static QEMUMachine lm32_uclinux_machine = {
     .is_default = 1
 };
 
+static QEMUMachine lm32_soc_machine = {
+    .name = "lm32-soc",
+    .desc = "lm32 System on a chip",
+    .init = lm32_soc_init,
+    .is_default = 1
+};
+
 static void lm32_machine_init(void)
 {
     qemu_register_machine(&lm32_uclinux_machine);
     qemu_register_machine(&lm32_evr_machine);
+    qemu_register_machine(&lm32_soc_machine);
 }
 
 machine_init(lm32_machine_init);

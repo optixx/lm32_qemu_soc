@@ -25,7 +25,7 @@
 #include "sysbus.h"
 #include "qemu-char.h"
 
-#define D(x)
+#define D(x) x
 
 #define R_RXTX  0
 #define R_IER   1

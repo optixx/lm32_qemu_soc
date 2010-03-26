@@ -208,6 +208,7 @@ lm32_soc_init(ram_addr_t ram_size_not_used,
 {
     CPUState *env;
     ram_addr_t phys_ram;
+    ram_addr_t phys_bram;
     qemu_irq *cpu_irq, irq[32];
     DeviceState *dev;
     int kernel_size;
@@ -216,11 +217,14 @@ lm32_soc_init(ram_addr_t ram_size_not_used,
     /* memory map */
     ram_addr_t ram_base      = 0x40000000;
     size_t ram_size          = 16 * 1024 * 1024;
+    ram_addr_t bram_base     = 0x00000000;
+    size_t bram_size         = 4 * 1024;
     ram_addr_t uart0_base    = 0xf0000000;
     ram_addr_t timer0_base   = 0xf0010000;
+    ram_addr_t timer1_base   = 0xf0030000;
     int uart0_irq            = 0;
     int timer0_irq           = 1;
-
+    int timer1_irq           = 3;
     if (cpu_model == NULL) {
         cpu_model = "lm32-full";
     }
@@ -229,9 +233,8 @@ lm32_soc_init(ram_addr_t ram_size_not_used,
     env->eba = ram_base;
     qemu_register_reset(main_cpu_reset, env);
 
-//    phys_bram = qemu_ram_alloc(bram_size);
-//    cpu_register_physical_memory(0x04000000, bram_size,
-//                                 phys_bram | IO_MEM_RAM);
+    phys_bram = qemu_ram_alloc(bram_size);
+    cpu_register_physical_memory(bram_base, bram_size, phys_bram | IO_MEM_RAM);
 
     phys_ram = qemu_ram_alloc(ram_size);
     cpu_register_physical_memory(ram_base, ram_size, phys_ram | IO_MEM_RAM);
@@ -246,6 +249,7 @@ lm32_soc_init(ram_addr_t ram_size_not_used,
 
     sysbus_create_simple("lm32,uart", uart0_base, irq[uart0_irq]);
     sysbus_create_simple("lm32,timer", timer0_base, irq[timer0_irq]);
+    sysbus_create_simple("lm32,timer", timer1_base, irq[timer1_irq]);
     uint64_t elf_entry;
     kernel_size = load_elf(kernel_filename, ram_base, &elf_entry, NULL, NULL,
                            0, ELF_MACHINE, 1);

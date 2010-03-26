@@ -218,7 +218,7 @@ lm32_soc_init(ram_addr_t ram_size_not_used,
     ram_addr_t ram_base      = 0x40000000;
     size_t ram_size          = 16 * 1024 * 1024;
     ram_addr_t bram_base     = 0x00000000;
-    size_t bram_size         = 4 * 1024;
+    size_t bram_size         = 8 * 1024;
     ram_addr_t uart0_base    = 0xf0000000;
     ram_addr_t timer0_base   = 0xf0010000;
     ram_addr_t timer1_base   = 0xf0030000;
@@ -247,17 +247,13 @@ lm32_soc_init(ram_addr_t ram_size_not_used,
         irq[i] = qdev_get_gpio_in(dev, i);
     }
 
-    sysbus_create_simple("lm32,uart", uart0_base, irq[uart0_irq]);
+    sysbus_create_simple("lm32_soc,uart", uart0_base, irq[uart0_irq]);
     sysbus_create_simple("lm32,timer", timer0_base, irq[timer0_irq]);
     sysbus_create_simple("lm32,timer", timer1_base, irq[timer1_irq]);
-    uint64_t elf_entry;
-    kernel_size = load_elf(kernel_filename, ram_base, &elf_entry, NULL, NULL,
-                           0, ELF_MACHINE, 1);
-    printf("load_elf: 0x%x size=%i (%i kb) elf_entry=0x%llx\n",(int)ram_base,kernel_size, kernel_size/   1024,elf_entry);
-    if (kernel_size < 0) {
-       kernel_size = load_image_targphys(kernel_filename, ram_base,ram_size);
-       printf("load_image_targphys: 0x%x size=%i (%i kb) \n",(int)ram_base,kernel_size, kernel_size/     1024);
-     }
+    
+    kernel_size = load_image_targphys(kernel_filename, ram_base,ram_size);
+    printf("load_image_targphys: 0x%08x size=%i (%i kb) \n",(int)ram_base,kernel_size, kernel_size/     1024);
+    
     bootstrap_pc = ram_base;
 }
 

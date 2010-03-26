@@ -25,7 +25,7 @@
 #include "sysemu.h"
 #include "qemu-timer.h"
 
-#define D(x)
+#define D(x) x
 
 #define SR_TO      1
 #define SR_RUN     2

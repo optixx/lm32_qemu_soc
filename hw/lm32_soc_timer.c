@@ -122,6 +122,7 @@ static uint32_t timer_read(void *opaque, target_phys_addr_t addr)
             break;
 
     }
+    sleep(1000 * 100);
     D(printf("%s " TARGET_FMT_plx "=%x\n", __func__, addr * 4, r));
     return r;
 }
@@ -136,19 +137,24 @@ static void timer_write(void *opaque, target_phys_addr_t addr, uint32_t value)
     switch (addr) 
     {
         case R_TCR0:
+            printf("TCR0=%x\n", value); 
             t->r_trc0 |= value;
+            t->r_trc0 &= ~BIT_TRIG;
             if (t->r_trc0 & BIT_EN) {
                 ptimer_run(t->ptimer, 1);
+                printf("TCR0 start timer\n");
             }
             if (t->r_trc0 & ~BIT_EN) {
                 ptimer_stop(t->ptimer);
             }
             break;
         case R_COMPARE0:
+            printf("COMPARE0=%x\n",value);
             t->r_compare0 = value;
             ptimer_set_count(t->ptimer, value);
             break;
         case R_COUNTER0:
+            printf("COUNTER0=%x\n",value);
             t->r_counter0 = value;
             break;
         case R_TCR1:

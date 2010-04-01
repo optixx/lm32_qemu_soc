@@ -248,8 +248,8 @@ lm32_soc_init(ram_addr_t ram_size_not_used,
     }
 
     sysbus_create_simple("lm32_soc,uart", uart0_base, irq[uart0_irq]);
-    sysbus_create_simple("lm32,timer", timer0_base, irq[timer0_irq]);
-    sysbus_create_simple("lm32,timer", timer1_base, irq[timer1_irq]);
+    sysbus_create_simple("lm32_soc,timer", timer0_base, irq[timer0_irq]);
+    sysbus_create_simple("lm32_soc,timer", timer1_base, irq[timer1_irq]);
     
     kernel_size = load_image_targphys(kernel_filename, ram_base,ram_size);
     printf("load_image_targphys: 0x%08x size=%i (%i kb) \n",(int)ram_base,kernel_size, kernel_size/     1024);

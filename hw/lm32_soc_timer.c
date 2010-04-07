@@ -91,7 +91,10 @@ struct lm32_soc_timer
 
 static void timer_update_irq(struct lm32_soc_timer *t)
 {
-    qemu_set_irq(t->irq0,1);
+    D(printf( "%s: trc0&BIT_TRIG=%i trc1&BIT_TRIG=%i\n", __func__, t->r_trc0 & BIT_TRIG, t->r_trc1 & BIT_TRIG));
+    
+    qemu_set_irq(t->irq0, t->r_trc0 & BIT_TRIG);
+    qemu_set_irq(t->irq1, t->r_trc1 & BIT_TRIG);
 }
 
 static uint32_t timer_read(void *opaque, target_phys_addr_t addr)
@@ -121,13 +124,11 @@ static uint32_t timer_read(void *opaque, target_phys_addr_t addr)
             r = t->r_counter1;
             break;
         default:
-            hw_error("lm32_soc_timer: read access to unkown register 0x"
-					TARGET_FMT_plx, addr);
+            hw_error("%s: read access to unkown register 0x"
+					TARGET_FMT_plx, __func__, addr);
             break;
 
     }
-    //D(printf("%s " TARGET_FMT_plx "=%x\n", __func__, addr * 4, r));
-    //D(printf("ptimer_get_count=%i\n",(uint32_t)ptimer_get_count(t->ptimer)));
     return r;
 }
 
@@ -136,58 +137,59 @@ static void timer_write(void *opaque, target_phys_addr_t addr, uint32_t value)
     struct lm32_soc_timer *t = opaque;
 
     addr >>= 2;
-    D(printf("%s addr=" TARGET_FMT_plx " val=%x (off=%d)\n",
+    D(printf("%s: addr=" TARGET_FMT_plx " val=%x (off=%d)\n",
              __func__, addr * 4, value, (int)addr & 3));
     switch (addr) 
     {
         case R_TCR0:
             t->r_trc0 = value;
             t->r_trc0 &= ~BIT_TRIG;
-            printf("TCR0=%x\n",t->r_trc0);
+            D(printf("%s: TCR0=%x\n",__func__, t->r_trc0));
             if (t->r_trc0 & BIT_EN) {
                 ptimer_run(t->ptimer0, 1);
-                D(printf("TCR0 start timer\n"));
+                D(printf("%s: TCR0 start timer\n", __func__));
             }
             if (!(t->r_trc0 & BIT_EN)) {
                 ptimer_stop(t->ptimer0);
-                D(printf("TCR0 stop timer\n"));
+                D(printf("%s: TCR0 stop timer\n", __func__));
             }
             break;
         case R_COMPARE0:
-            D(printf("COMPARE0=%x\n",value));
+            D(printf("%s: COMPARE0=%x\n",__func__, value));
             t->r_compare0 = value;
             ptimer_set_count(t->ptimer0, value);
             break;
         case R_COUNTER0:
-            D(printf("COUNTER0=%x\n",value));
+            D(printf("%s: COUNTER0=%x\n",__func__, value));
             t->r_counter0 = value;
             break;
         case R_TCR1:
             t->r_trc1 = value;
             t->r_trc1 &= ~BIT_TRIG;
-            D(printf("TCR1=%x\n",t->r_trc1));
+            D(printf("%s: TCR1=%x\n",__func__, t->r_trc1));
             if (t->r_trc1 & BIT_EN) {
                 ptimer_run(t->ptimer1, 1);
-                D(printf("TCR1 start timer\n"));
+                D(printf("%s: TCR1 start timer\n", __func__));
             }
             if (!(t->r_trc1 & BIT_EN)) {
                 ptimer_stop(t->ptimer1);
-                D(printf("TCR1 stop timer\n"));
+                D(printf("%s: TCR1 stop timer\n", __func__));
             }
             break;
         case R_COMPARE1:
+            D(printf("%s: COMPARE1=%x\n",__func__, value));
             t->r_compare1 = value;
             ptimer_set_count(t->ptimer1, value);
             break;
         case R_COUNTER1:
+            D(printf("%s: COUNTER1=%x\n",__func__, value));
             t->r_counter1 = value;
             break;
         default:
-            hw_error("lm32_soc_timer: write access to unkown register 0x"
-					TARGET_FMT_plx, addr);
+            hw_error("%s: write access to unkown register 0x"
+					 TARGET_FMT_plx, __func__,addr);
             break;
     }
-    timer_update_irq(t);
 }
 
 static CPUReadMemoryFunc* const timer_read_fn[] = {
@@ -206,22 +208,19 @@ static void timer_hit0(void *opaque)
 {
     struct lm32_soc_timer *t = opaque;
 
-    D(printf("%s\n", __func__));
     t->r_trc0 |= BIT_TRIG;
     if (t->r_trc0 & BIT_IRQEN){
-        D(printf("send irq0\n"));
-        //timer_update_irq(t);
-        qemu_set_irq(t->irq0,1);
+        D(printf("%s: send irq0\n", __func__));
+        timer_update_irq(t);
     }
     if (t->r_trc0 & BIT_AR)
     {
+        D(printf("%s: ptimer0 restart\n", __func__));
         ptimer_set_count(t->ptimer0, t->r_compare0);
         ptimer_run(t->ptimer0, 1);
-        D(printf("ptimer0 restart\n"));
-        exit(0);
     } else {
+        D(printf("%s: ptimer0 stop\n", __func__));
         ptimer_stop(t->ptimer0);
-        D(printf("ptimer0 stop\n"));
     }
 }
 
@@ -229,22 +228,19 @@ static void timer_hit1(void *opaque)
 {
     struct lm32_soc_timer *t = opaque;
 
-    D(printf("%s\n", __func__));
     t->r_trc1 |= BIT_TRIG;
     if (t->r_trc1 & BIT_IRQEN){
-        D(printf("send irq1\n"));
+        D(printf("%s: send irq1\n", __func__));
         timer_update_irq(t);
-        qemu_set_irq(t->irq1,1);
     }
     if (t->r_trc1 & BIT_AR)
     {
+        D(printf("%s: ptimer1 restart\n", __func__));
         ptimer_set_count(t->ptimer1, t->r_compare0);
         ptimer_run(t->ptimer1, 1);
-        D(printf("ptimer1 restart\n"));
-        exit(0);
     } else {
+        D(printf("%s: ptimer1 stop\n", __func__));
         ptimer_stop(t->ptimer1);
-        D(printf("ptimer1 stop\n"));
     }
 
 }

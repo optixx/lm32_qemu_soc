@@ -70,13 +70,17 @@ struct lm32_soc_timer
 {
     SysBusDevice busdev;
 
-    QEMUBH *bh;
-    ptimer_state *ptimer;
-
-    qemu_irq irq;
+    QEMUBH *bh0;
+    QEMUBH *bh1;
+    
+    ptimer_state *ptimer0;
+    ptimer_state *ptimer1;
+    
+    qemu_irq irq0;
+    qemu_irq irq1;
     
     uint32_t freq_hz;
-
+    
     uint32_t r_trc0;
     uint32_t r_compare0;
     uint32_t r_counter0;
@@ -87,7 +91,7 @@ struct lm32_soc_timer
 
 static void timer_update_irq(struct lm32_soc_timer *t)
 {
-    //qemu_set_irq(t->irq, t->r_status & SR_TO && t->r_control & CR_ITO);
+    qemu_set_irq(t->irq0,1);
 }
 
 static uint32_t timer_read(void *opaque, target_phys_addr_t addr)
@@ -122,8 +126,8 @@ static uint32_t timer_read(void *opaque, target_phys_addr_t addr)
             break;
 
     }
-    sleep(1000 * 100);
-    D(printf("%s " TARGET_FMT_plx "=%x\n", __func__, addr * 4, r));
+    //D(printf("%s " TARGET_FMT_plx "=%x\n", __func__, addr * 4, r));
+    //D(printf("ptimer_get_count=%i\n",(uint32_t)ptimer_get_count(t->ptimer)));
     return r;
 }
 
@@ -137,38 +141,43 @@ static void timer_write(void *opaque, target_phys_addr_t addr, uint32_t value)
     switch (addr) 
     {
         case R_TCR0:
-            printf("TCR0=%x\n", value); 
-            t->r_trc0 |= value;
+            t->r_trc0 = value;
             t->r_trc0 &= ~BIT_TRIG;
+            printf("TCR0=%x\n",t->r_trc0);
             if (t->r_trc0 & BIT_EN) {
-                ptimer_run(t->ptimer, 1);
-                printf("TCR0 start timer\n");
+                ptimer_run(t->ptimer0, 1);
+                D(printf("TCR0 start timer\n"));
             }
-            if (t->r_trc0 & ~BIT_EN) {
-                ptimer_stop(t->ptimer);
+            if (!(t->r_trc0 & BIT_EN)) {
+                ptimer_stop(t->ptimer0);
+                D(printf("TCR0 stop timer\n"));
             }
             break;
         case R_COMPARE0:
-            printf("COMPARE0=%x\n",value);
+            D(printf("COMPARE0=%x\n",value));
             t->r_compare0 = value;
-            ptimer_set_count(t->ptimer, value);
+            ptimer_set_count(t->ptimer0, value);
             break;
         case R_COUNTER0:
-            printf("COUNTER0=%x\n",value);
+            D(printf("COUNTER0=%x\n",value));
             t->r_counter0 = value;
             break;
         case R_TCR1:
-            t->r_trc1 |= value;
+            t->r_trc1 = value;
+            t->r_trc1 &= ~BIT_TRIG;
+            D(printf("TCR1=%x\n",t->r_trc1));
             if (t->r_trc1 & BIT_EN) {
-                ptimer_run(t->ptimer, 1);
+                ptimer_run(t->ptimer1, 1);
+                D(printf("TCR1 start timer\n"));
             }
-            if (t->r_trc1 & ~BIT_EN) {
-                ptimer_stop(t->ptimer);
+            if (!(t->r_trc1 & BIT_EN)) {
+                ptimer_stop(t->ptimer1);
+                D(printf("TCR1 stop timer\n"));
             }
             break;
         case R_COMPARE1:
             t->r_compare1 = value;
-            ptimer_set_count(t->ptimer, value);
+            ptimer_set_count(t->ptimer1, value);
             break;
         case R_COUNTER1:
             t->r_counter1 = value;
@@ -193,23 +202,51 @@ static CPUWriteMemoryFunc* const timer_write_fn[] = {
     &timer_write,
 };
 
-static void timer_hit(void *opaque)
+static void timer_hit0(void *opaque)
 {
     struct lm32_soc_timer *t = opaque;
 
     D(printf("%s\n", __func__));
-
     t->r_trc0 |= BIT_TRIG;
-
+    if (t->r_trc0 & BIT_IRQEN){
+        D(printf("send irq0\n"));
+        //timer_update_irq(t);
+        qemu_set_irq(t->irq0,1);
+    }
     if (t->r_trc0 & BIT_AR)
     {
-        ptimer_set_count(t->ptimer, t->r_compare0);
-        ptimer_run(t->ptimer, 1);
+        ptimer_set_count(t->ptimer0, t->r_compare0);
+        ptimer_run(t->ptimer0, 1);
+        D(printf("ptimer0 restart\n"));
+        exit(0);
+    } else {
+        ptimer_stop(t->ptimer0);
+        D(printf("ptimer0 stop\n"));
     }
-    
-    if (t->r_trc0 & BIT_IRQEN){
+}
+
+static void timer_hit1(void *opaque)
+{
+    struct lm32_soc_timer *t = opaque;
+
+    D(printf("%s\n", __func__));
+    t->r_trc1 |= BIT_TRIG;
+    if (t->r_trc1 & BIT_IRQEN){
+        D(printf("send irq1\n"));
         timer_update_irq(t);
+        qemu_set_irq(t->irq1,1);
     }
+    if (t->r_trc1 & BIT_AR)
+    {
+        ptimer_set_count(t->ptimer1, t->r_compare0);
+        ptimer_run(t->ptimer1, 1);
+        D(printf("ptimer1 restart\n"));
+        exit(0);
+    } else {
+        ptimer_stop(t->ptimer1);
+        D(printf("ptimer1 stop\n"));
+    }
+
 }
 
 static int lm32_soc_timer_init(SysBusDevice *dev)
@@ -217,12 +254,17 @@ static int lm32_soc_timer_init(SysBusDevice *dev)
     struct lm32_soc_timer *t = FROM_SYSBUS(typeof (*t), dev);
     int timer_regs;
 
-    sysbus_init_irq(dev, &t->irq);
+    sysbus_init_irq(dev, &t->irq0);
 
-    t->bh = qemu_bh_new(timer_hit, t);
-    t->ptimer = ptimer_init(t->bh);
-    ptimer_set_freq(t->ptimer, t->freq_hz);
+    t->bh0 = qemu_bh_new(timer_hit0, t);
+    t->ptimer0 = ptimer_init(t->bh0);
+    ptimer_set_freq(t->ptimer0, t->freq_hz);
 
+
+    t->bh1 = qemu_bh_new(timer_hit1, t);
+    t->ptimer1 = ptimer_init(t->bh1);
+    ptimer_set_freq(t->ptimer1, t->freq_hz);
+    
     timer_regs = cpu_register_io_memory(timer_read_fn, timer_write_fn, t);
     sysbus_init_mmio(dev, R_MAX * 4, timer_regs);
     return 0;

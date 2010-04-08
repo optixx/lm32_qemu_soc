@@ -28,7 +28,7 @@ void irq_info(Monitor *mon)
 static void lm32_pic_cpu_handler(void *opaque, int irq, int level)
 {
     CPUState *env = (CPUState *)opaque;
-
+    printf("%s: irq=%i level=%i\n",__func__, irq, level);
 	if (level)
 		cpu_interrupt(env, CPU_INTERRUPT_HARD);
 	else

@@ -93,8 +93,10 @@ static void timer_update_irq(struct lm32_soc_timer *t)
 {
     D(printf( "%s: trc0&BIT_TRIG=%i trc1&BIT_TRIG=%i\n", __func__, t->r_trc0 & BIT_TRIG, t->r_trc1 & BIT_TRIG));
     
-    qemu_set_irq(t->irq0, t->r_trc0 & BIT_TRIG);
-    qemu_set_irq(t->irq1, t->r_trc1 & BIT_TRIG);
+    //qemu_irq_pulse(t->irq0);
+    //qemu_irq_pulse(t->irq1);
+    qemu_set_irq(t->irq0, t->r_trc0 & BIT_TRIG && t->r_trc0 & BIT_IRQEN);
+    qemu_set_irq(t->irq1, t->r_trc1 & BIT_TRIG && t->r_trc0 & BIT_IRQEN);
 }
 
 static uint32_t timer_read(void *opaque, target_phys_addr_t addr)
@@ -251,7 +253,8 @@ static int lm32_soc_timer_init(SysBusDevice *dev)
     int timer_regs;
 
     sysbus_init_irq(dev, &t->irq0);
-
+    sysbus_init_irq(dev, &t->irq1);
+    
     t->bh0 = qemu_bh_new(timer_hit0, t);
     t->ptimer0 = ptimer_init(t->bh0);
     ptimer_set_freq(t->ptimer0, t->freq_hz);

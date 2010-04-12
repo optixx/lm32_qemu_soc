@@ -221,10 +221,10 @@ lm32_soc_init(ram_addr_t ram_size_not_used,
     size_t bram_size         = 8 * 1024;
     ram_addr_t uart0_base    = 0xf0000000;
     ram_addr_t timer0_base   = 0xf0010000;
-    ram_addr_t timer1_base   = 0xf0030000;
+    ram_addr_t spi0_base     = 0xf0030000;
+    
     int uart0_irq            = 0;
     int timer0_irq           = 1;
-    int timer1_irq           = 3;
     if (cpu_model == NULL) {
         cpu_model = "lm32-full";
     }
@@ -249,7 +249,7 @@ lm32_soc_init(ram_addr_t ram_size_not_used,
 
     sysbus_create_simple("lm32_soc,uart", uart0_base, irq[uart0_irq]);
     sysbus_create_simple("lm32_soc,timer", timer0_base, irq[timer0_irq]);
-    sysbus_create_simple("lm32_soc,timer", timer1_base, irq[timer1_irq]);
+    sysbus_create_simple("lm32_soc,spi", spi0_base, NULL);
     
     kernel_size = load_image_targphys(kernel_filename, ram_base,ram_size);
     printf("load_image_targphys: 0x%08x size=%i (%i kb) \n",(int)ram_base,kernel_size, kernel_size/     1024);

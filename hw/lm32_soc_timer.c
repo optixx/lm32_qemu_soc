@@ -96,7 +96,7 @@ static void timer_update_irq(struct lm32_soc_timer *t)
     //qemu_irq_pulse(t->irq0);
     //qemu_irq_pulse(t->irq1);
     qemu_set_irq(t->irq0, t->r_trc0 & BIT_TRIG && t->r_trc0 & BIT_IRQEN);
-    qemu_set_irq(t->irq1, t->r_trc1 & BIT_TRIG && t->r_trc0 & BIT_IRQEN);
+    qemu_set_irq(t->irq1, t->r_trc1 & BIT_TRIG && t->r_trc1 & BIT_IRQEN);
 }
 
 static uint32_t timer_read(void *opaque, target_phys_addr_t addr)

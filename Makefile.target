@@ -224,6 +224,7 @@ obj-lm32-y += lm32_boards.o
 obj-lm32-y += lm32_timer.o
 obj-lm32-y += lm32_uart.o
 obj-lm32-y += lm32_soc_uart.o
+obj-lm32-y += lm32_soc_spi.o
 obj-lm32-y += lm32_soc_timer.o
 obj-lm32-y += pflash_cfi02.o
 

@@ -17,6 +17,8 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#define D(x) 
+
 #include "hw.h"
 #include "pc.h"
 
@@ -28,7 +30,7 @@ void irq_info(Monitor *mon)
 static void lm32_pic_cpu_handler(void *opaque, int irq, int level)
 {
     CPUState *env = (CPUState *)opaque;
-    printf("%s: irq=%i level=%i\n",__func__, irq, level);
+    D(printf("%s: irq=%i level=%i\n",__func__, irq, level));
 	if (level)
 		cpu_interrupt(env, CPU_INTERRUPT_HARD);
 	else

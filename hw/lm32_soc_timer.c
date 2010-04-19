@@ -25,7 +25,7 @@
 #include "sysemu.h"
 #include "qemu-timer.h"
 
-#define D(x) x
+#define D(x) 
 
 // Wishbone Timer
 //

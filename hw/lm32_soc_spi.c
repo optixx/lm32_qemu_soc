@@ -37,6 +37,7 @@ struct lm32_soc_spi
 
 static uint32_t spi_read(void *opaque, target_phys_addr_t addr)
 {
+    D(printf("%s: addr=%08x\n", __func__,addr));
     struct lm32_soc_spi *s = opaque;
     uint32_t r = 0;
     addr >>= 2;
@@ -44,11 +45,11 @@ static uint32_t spi_read(void *opaque, target_phys_addr_t addr)
     {
         case 0:
             r = s->regs[0];
+            break;
         default:
             hw_error("%s: read from unknown register", __func__);
             break;
     }
-    D(printf("%s: addr=%08x\n", __func__,addr));
     return r;
 }
 

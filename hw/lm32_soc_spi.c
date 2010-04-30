@@ -21,6 +21,11 @@
  *   http://www.milkymist.org/doc/uart.pdf
  */
 
+#include <stdio.h>
+
+#include "sysbus.h"
+#include "qemu-char.h"
+
 #define D(x) x
 
 #define SPDR   0
@@ -28,12 +33,14 @@
 #define SPCS   2
 #define DUMMY  3 
 #define SPDIV  4
-#define STATE  5
-#define R_MAX  4
+#define R_MAX  5
 
 
-#include "sysbus.h"
-#include "qemu-char.h"
+#define spi_busy() s->regs[SPCR] |= 1
+#define spi_ready() s->regs[SPCR] &= ~1
+
+
+FILE *sdImage;
 
 //SPI state machine states
 enum{
@@ -93,43 +100,45 @@ struct lm32_soc_spi
     };
 };
 
-FILE *sdImage;
 
-void SDLoadImage(uint8_t* filename){
-    if(sdImage){
-        printf("SD Image file already specified.");
-        return;
-    }
-    sdImage = fopen(filename,"rb");
+static int8_t SDLoadImage( uint8_t* filename){
+    
+    sdImage = fopen((char*)filename,"rb");
     if(!sdImage){
-        printf("Cannot find SD image %s\n",filename);
-        return;
+        D(printf("Cannot find SD image %s\n",filename));
+        return 1;
     }
+    return 0;
 }
 
-uint8_t SDReadByte(){
+static int8_t SDReadByte(void)
+{
     uint8_t result;
     if(!fread(&result,1,1,sdImage)){
         D(printf("Error reading SD image\n"));
+        return -1;
     }
     return result;
 }
 
-void SDWriteByte(uint8_t value){    
+static int8_t SDWriteByte(uint8_t value){    
     if(!fwrite(&value,1,1,sdImage)){
         D(printf("Error writing to SD image\n"));
+        return -1;
     }
+    return 0;
 }
 
-void SDSeekToOffset(uint32_t pos){
+static int8_t SDSeekToOffset(uint32_t pos){
     fseek(sdImage,pos,SEEK_SET);
+    return 0;
 }
 
-void avr8::SDCommit(){
-
+static int8_t SDCommit(void){
+    return 0;
 }
 
-int8_t ascii(uint8_t ch){
+static int8_t ascii(uint8_t ch){
     if(ch >= 32 && ch <= 127){
         return ch;
     }
@@ -137,54 +146,61 @@ int8_t ascii(uint8_t ch){
 }
 
 
-spi_write(void *opaque, target_phys_addr_t addr, uint32_t value)
-{
-    //D(printf("%s: addr=%08x value=%08x\n", __func__,addr, value));
-    struct lm32_soc_spi *s = opaque;
 
-void spi_update(void *opaque){
+static void spi_update(void *opaque){
     struct lm32_soc_spi *s = opaque;
-    D(printf("byte: %02x\n",s->spi_byte));
+    D(printf("%s: byte: %02x\n",__func__,s->spi_byte));
     switch(s->spi_state){
     case SPI_IDLE_STATE:
+        D(printf("%s: SPI_IDLE_STATE\n",__func__));
         if(s->spi_byte == 0xff){
-            s->regs[SPDR] = 0x01; // echo back that we're ready
+            s->regs[SPDR] = 0xff; // echo back that we're ready
+            spi_ready();
             break;
         }
         s->spi_command = s->spi_byte;
         s->regs[SPDR] = 0x00;
+        spi_ready();
         s->spi_state = SPI_ARG_X_HI;
         break;
     case SPI_ARG_X_HI:
-        printf("x hi: %02X\n",s->spi_byte);
-        spi_argx_hi = s->spi_byte;
+        D(printf("%s: x hi: %02X\n",__func__,s->spi_byte));
+        s->spi_argx_hi = s->spi_byte;
         s->regs[SPDR] = 0x00;
+        spi_ready();
         s->spi_state = SPI_ARG_X_LO;
         break;
     case SPI_ARG_X_LO:
-        printf("x lo: %02X\n",s->spi_byte);
-        spi_argx_lo = s->spi_byte;
+        D(printf("%s: SPI_IDLE_STATE\n",__func__));
+        D(printf("%s: x lo: %02X\n",__func__,s->spi_byte));
+        s->spi_argx_lo = s->spi_byte;
         s->regs[SPDR] = 0x00;
+        spi_ready();
         s->spi_state = SPI_ARG_Y_HI;
         break;
     case SPI_ARG_Y_HI:
-        printf("y hi: %02X\n",s->spi_byte);
-        spi_argy_hi = s->spi_byte;
+        D(printf("%s: y hi: %02X\n",__func__,s->spi_byte));
+        s->spi_argy_hi = s->spi_byte;
         s->regs[SPDR] = 0x00;
+        spi_ready();
         s->spi_state = SPI_ARG_Y_LO;
         break;
     case SPI_ARG_Y_LO:
-        printf("y lo: %02X\n",s->spi_byte);
-        spi_argy_lo = s->spi_byte;
+        D(printf("%s: y lo: %02X\n",__func__,s->spi_byte));
+        s->spi_argy_lo = s->spi_byte;
         s->regs[SPDR] = 0x00;
+        spi_ready();
         s->spi_state = SPI_ARG_CRC;
         break;
     case SPI_ARG_CRC:
-        printf("SPI - CMD%d (%02X) X:%04X Y:%04X CRC: %02X\n",s->spi_command^0x40,s->spi_command,spi_argx,spi_argy,s->spi_byte);
+        D(printf("%s: SPI - CMD%d (%02X) X:%04X Y:%04X CRC: %02X\n",__func__,s->spi_command^0x40,s->spi_command,
+                s->spi_argx,s->spi_argy,s->spi_byte));
         // ignore CRC and process commands
         switch(s->spi_command){
         case 0x40: //CMD0 =  RESET / GO_IDLE_STATE
+            D(printf("%s: CMD0 - Reset\n",__func__));
             s->regs[SPDR] = 0x00;
+            spi_ready();
             s->spi_state = SPI_RESPOND_SINGLE;
             s->spi_response_buffer[0] = 0x00; // 8-clock wait
             s->spi_response_buffer[1] = 0x01; // no errors, going idle
@@ -193,7 +209,9 @@ void spi_update(void *opaque){
             s->spi_bytecount = 0;
             break;
         case 0x41: //CMD1 =  INIT / SEND_OP_COND
+            D(printf("%s: CMD1 - Init\n",__func__));
             s->regs[SPDR] = 0x00;
+            spi_ready();
             s->spi_state = SPI_RESPOND_SINGLE;
             s->spi_response_buffer[0] = 0x00; // 8-clock wait
             s->spi_response_buffer[1] = 0x00; // no error
@@ -202,40 +220,48 @@ void spi_update(void *opaque){
             s->spi_bytecount = 0;
             break;
         case 0x51: //CMD17 =  READ_BLOCK
+            D(printf("%s: CMD17 - Read Block\n",__func__));
             s->regs[SPDR] = 0x00;
+            spi_ready();
             s->spi_state = SPI_RESPOND_SINGLE;
             s->spi_response_buffer[0] = 0x00; // 8-clock wait
             s->spi_response_buffer[1] = 0x00; // no error
             s->spi_response_buffer[2] = 0xFE; // start block
             s->spi_response_ptr = s->spi_response_buffer;
             s->spi_response_end = s->spi_response_ptr+3;
-            SDSeekToOffset(spi_arg);
+            SDSeekToOffset(s->spi_arg);
             s->spi_bytecount = 512;
             break;
         case 0x52: //CMD18 =  MULTI_READ_BLOCK
+            D(printf("%s: CMD18 - Multi Read\n",__func__));
             s->regs[SPDR] = 0x00;
+            spi_ready();
             s->spi_state = SPI_RESPOND_MULTI;
             s->spi_response_buffer[0] = 0x00; // 8-clock wait
             s->spi_response_buffer[1] = 0x00; // no error
             s->spi_response_buffer[2] = 0xFE; // start block
             s->spi_response_ptr = s->spi_response_buffer;
             s->spi_response_end = s->spi_response_ptr+3;
-            SDSeekToOffset(spi_arg);
+            SDSeekToOffset(s->spi_arg);
             s->spi_bytecount = 512;
             break;   
         case 0x58: //CMD24 =  WRITE_BLOCK
+            D(printf("%s: CMD24 - Write Read\n",__func__));
             s->regs[SPDR] = 0x00;
+            spi_ready();
             s->spi_state = SPI_WRITE_SINGLE;
             s->spi_response_buffer[0] = 0x00; // 8-clock wait
             s->spi_response_buffer[1] = 0x00; // no error
             s->spi_response_buffer[2] = 0xFE; // start block
             s->spi_response_ptr = s->spi_response_buffer;
             s->spi_response_end = s->spi_response_ptr+3;
-            SDSeekToOffset(spi_arg);
+            SDSeekToOffset(s->spi_arg);
             s->spi_bytecount = 512;
             break;            
         default:
+            D(printf("%s: default\n",__func__));
             s->regs[SPDR] = 0x00;
+            spi_ready();
             s->spi_state = SPI_RESPOND_SINGLE;
             s->spi_response_buffer[0] = 0x02; // data accepted
             s->spi_response_buffer[1] = 0x05;  //i illegal command
@@ -246,7 +272,8 @@ void spi_update(void *opaque){
         break;
     case SPI_RESPOND_SINGLE:
         s->regs[SPDR] = *s->spi_response_ptr;
-        printf("SPI - Respond: %02X\n",s->regs[SPDR]);
+        spi_ready();
+        D(printf("%s: SPI - Respond: %02X\n",__func__,s->regs[SPDR]));
         s->spi_response_ptr++;
         if(s->spi_response_ptr == s->spi_response_end){
             if(s->spi_bytecount != 0){
@@ -259,17 +286,23 @@ void spi_update(void *opaque){
         break;
     case SPI_READ_SINGLE_BLOCK:
         s->regs[SPDR] = SDReadByte();
+        spi_ready();
 	    {
             // output a nice display to see sector data
             int i = 512-s->spi_bytecount;
             int ofs = i&0x000F;
+            int j;
             static unsigned char buf[16];
             if(i > 0 && (ofs == 0)){
-                printf("%04X: ",i-16);
-                for(int j=0; j<16; j++) printf("%02X ",buf[j]);
-                printf("| ");
-                for(int j=0; j<16; j++) printf("%c",ascii(buf[j]));
-                printf("\n");
+                D(printf("%04X: ",i-16));
+                for(j=0; j<16; j++){ 
+                    D(printf("%02X ",buf[j]));
+                }
+                D(printf("| "));
+                for(j=0; j<16; j++) {
+                    D(printf("%c",ascii(buf[j])));
+                }
+                D(printf("\n"));
             }
             buf[ofs] = s->regs[SPDR];
 	    }
@@ -284,7 +317,8 @@ void spi_update(void *opaque){
         break;
     case SPI_RESPOND_MULTI:
         s->regs[SPDR] = *s->spi_response_ptr;
-        printf("SPI - Respond: %02X\n",s->regs[SPDR]);
+        spi_ready();
+        D(printf("%s: SPI - Respond: %02X\n",__func__,s->regs[SPDR]));
         s->spi_response_ptr++;
         if(s->spi_response_ptr == s->spi_response_end){
             s->spi_state = SPI_READ_MULTIPLE_BLOCK;
@@ -293,6 +327,7 @@ void spi_update(void *opaque){
     case SPI_READ_MULTIPLE_BLOCK:
         if(s->regs[SPDR] == 0x4C){ //CMD12
             s->regs[SPDR] = SDReadByte();
+            spi_ready();
             memset(s->spi_response_buffer,0xFF,9); // Q&D - return garbage in response to the whole command
             s->spi_response_ptr = s->spi_response_buffer;
             s->spi_response_end = s->spi_response_ptr+9;
@@ -301,9 +336,10 @@ void spi_update(void *opaque){
             break;
         }
         else{
-            s-regs[SPDR] = SDReadByte();
+            s->regs[SPDR] = SDReadByte();
+            spi_ready();
         }
-        printf("SPI - Data[%d]: %02X\n",512-s->spi_bytecount,s->regs[SPDR]);
+        D(printf("%s: SPI - Data[%d]: %02X\n",__func__,512-s->spi_bytecount,s->regs[SPDR]));
         s->spi_bytecount--;
         if(s->spi_bytecount == 0){
             s->spi_response_buffer[0] = 0x00; //CRC
@@ -311,15 +347,15 @@ void spi_update(void *opaque){
             s->spi_response_buffer[2] = 0xFE; // start block
             s->spi_response_ptr = s->spi_response_buffer;
             s->spi_response_end = s->spi_response_ptr+3;
-            spi_arg+=512; // automatically move to next block
-            SDSeekToOffset(spi_arg);
+            s->spi_arg+=512; // automatically move to next block
+            SDSeekToOffset(s->spi_arg);
             s->spi_bytecount = 512;
             s->spi_state = SPI_RESPOND_MULTI;
         }
         break;
     case SPI_WRITE_SINGLE:
         s->regs[SPDR] = *s->spi_response_ptr;
-        printf("SPI - Respond: %02X\n",s->regs[SPDR]);
+        D(printf("%s: SPI - Respond: %02X\n",__func__,s->regs[SPDR]));
         s->spi_response_ptr++;
         if(s->spi_response_ptr == s->spi_response_end){
             if(s->spi_bytecount != 0){
@@ -332,7 +368,8 @@ void spi_update(void *opaque){
         break;    
     case SPI_WRITE_SINGLE_BLOCK:
         SDWriteByte(s->regs[SPDR]);
-        printf("SPI - Data[%d]: %02X\n",s->spi_bytecount,s->regs[SPDR]);
+        spi_ready();
+        D(printf("%s: SPI - Data[%d]: %02X\n",__func__,s->spi_bytecount,s->regs[SPDR]));
         s->regs[SPDR] = 0xFF;
         s->spi_bytecount--;
         if(s->spi_bytecount == 0){
@@ -368,6 +405,7 @@ static uint32_t spi_read(void *opaque, target_phys_addr_t addr)
             hw_error("%s: read from unknown register", __func__);
             break;
     }
+
     return r;
 }
 
@@ -390,6 +428,8 @@ spi_write(void *opaque, target_phys_addr_t addr, uint32_t value)
                 s->spi_clock = 64 * 8; // spiclockdivider * 8
                 s->spi_transfer = 1;
                 s->spi_byte = value;
+                spi_busy();
+                spi_update(opaque);
             }
             break;
         case SPCS:
@@ -403,6 +443,7 @@ spi_write(void *opaque, target_phys_addr_t addr, uint32_t value)
         default:
             hw_error("%s: write to unknown register", __func__);
             break;
+    
     }
 }
 
@@ -440,6 +481,7 @@ static int lm32_soc_spi_init(SysBusDevice *dev)
     s->spi_clock = 0;
     s->spi_transfer = 0;
     s->spi_state = SPI_IDLE_STATE;
+    SDLoadImage((uint8_t*)"sdcard.img");
     return 0;
 }
 

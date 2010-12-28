@@ -118,6 +118,7 @@ static int8_t SDReadByte(void)
         D(printf("Error reading SD image\n"));
         return -1;
     }
+    //D(printf("SDRead 0x%02x\n",result));
     return result;
 }
 
@@ -131,6 +132,7 @@ static int8_t SDWriteByte(uint8_t value){
 
 static int8_t SDSeekToOffset(uint32_t pos){
     fseek(sdImage,pos,SEEK_SET);
+    D(printf("SDSeekToOffset %d\n",pos));
     return 0;
 }
 
@@ -149,7 +151,7 @@ static int8_t ascii(uint8_t ch){
 
 static void spi_update(void *opaque){
     struct lm32_soc_spi *s = opaque;
-    D(printf("%s: byte: %02x\n",__func__,s->spi_byte));
+    //D(printf("%s: byte: %02x\n",__func__,s->spi_byte));
     switch(s->spi_state){
     case SPI_IDLE_STATE:
         D(printf("%s: SPI_IDLE_STATE\n",__func__));
@@ -171,7 +173,6 @@ static void spi_update(void *opaque){
         s->spi_state = SPI_ARG_X_LO;
         break;
     case SPI_ARG_X_LO:
-        D(printf("%s: SPI_IDLE_STATE\n",__func__));
         D(printf("%s: x lo: %02X\n",__func__,s->spi_byte));
         s->spi_argx_lo = s->spi_byte;
         s->regs[SPDR] = 0x00;
@@ -202,7 +203,7 @@ static void spi_update(void *opaque){
             s->regs[SPDR] = 0x00;
             spi_ready();
             s->spi_state = SPI_RESPOND_SINGLE;
-            s->spi_response_buffer[0] = 0x00; // 8-clock wait
+            s->spi_response_buffer[0] = 0xff; // 8-clock wait
             s->spi_response_buffer[1] = 0x01; // no errors, going idle
             s->spi_response_ptr = s->spi_response_buffer;
             s->spi_response_end = s->spi_response_ptr+2;
@@ -214,7 +215,18 @@ static void spi_update(void *opaque){
             spi_ready();
             s->spi_state = SPI_RESPOND_SINGLE;
             s->spi_response_buffer[0] = 0x00; // 8-clock wait
-            s->spi_response_buffer[1] = 0x00; // no error
+            s->spi_response_buffer[1] = 0xFF; // no error
+            s->spi_response_ptr = s->spi_response_buffer;
+            s->spi_response_end = s->spi_response_ptr+2;
+            s->spi_bytecount = 0;
+            break;
+        case 0x50: //CMD16 =  SET_BLOCKLEN  
+            D(printf("%s: CMD16 - Set Blocklen\n",__func__));
+            s->regs[SPDR] = 0x00;
+            spi_ready();
+            s->spi_state = SPI_RESPOND_SINGLE;
+            s->spi_response_buffer[0] = 0x00; // 8-clock wait
+            s->spi_response_buffer[1] = 0xFF; // no error
             s->spi_response_ptr = s->spi_response_buffer;
             s->spi_response_end = s->spi_response_ptr+2;
             s->spi_bytecount = 0;
@@ -225,7 +237,7 @@ static void spi_update(void *opaque){
             spi_ready();
             s->spi_state = SPI_RESPOND_SINGLE;
             s->spi_response_buffer[0] = 0x00; // 8-clock wait
-            s->spi_response_buffer[1] = 0x00; // no error
+            s->spi_response_buffer[1] = 0xFF; // no error
             s->spi_response_buffer[2] = 0xFE; // start block
             s->spi_response_ptr = s->spi_response_buffer;
             s->spi_response_end = s->spi_response_ptr+3;
@@ -395,11 +407,11 @@ static uint32_t spi_read(void *opaque, target_phys_addr_t addr)
     {
         case SPCR:
             r = s->regs[SPCR];
-            D(printf("%s:  <- SPCR=%08x\n", __func__,r));
+            //D(printf("%s:  <- SPCR=%08x\n", __func__,r));
             break;
         case SPDR:
             r = s->regs[SPDR];
-            D(printf("%s:  <- SPDR=%08x\n", __func__,r));
+            //D(printf("%s:  <- SPDR=%08x\n", __func__,r));
             break;
         default:
             hw_error("%s: read from unknown register", __func__);
@@ -419,26 +431,27 @@ spi_write(void *opaque, target_phys_addr_t addr, uint32_t value)
     {
         case SPCR:
             s->regs[SPCR] = value;
-            D(printf("%s: -> SPCR=%08x\n", __func__,value));
+            //D(printf("%s: -> SPCR=%08x\n", __func__,value));
             break;
         case SPDR:
             s->regs[SPDR] = value;
-            D(printf("%s: -> SPDR=%08x\n", __func__,value));
-            if (value & 0x40){
+            //D(printf("%s: -> SPDR=%08x\n", __func__,value));
+            // Why filter?
+            //if (value & 0x40){
                 s->spi_clock = 64 * 8; // spiclockdivider * 8
                 s->spi_transfer = 1;
                 s->spi_byte = value;
                 spi_busy();
                 spi_update(opaque);
-            }
+            //}
             break;
         case SPCS:
             s->regs[SPCS] = value;
-            D(printf("%s: -> SPCS=%08x\n", __func__,value));
+            //D(printf("%s: -> SPCS=%08x\n", __func__,value));
             break;
         case SPDIV:
             s->regs[SPDIV] = value;
-            D(printf("%s: -> SPDIV=%08x\n", __func__,value));
+            //D(printf("%s: -> SPDIV=%08x\n", __func__,value));
             break;
         default:
             hw_error("%s: write to unknown register", __func__);
